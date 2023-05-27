@@ -1,3 +1,4 @@
+// 1차 수정
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 

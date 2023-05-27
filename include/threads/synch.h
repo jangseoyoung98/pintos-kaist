@@ -1,3 +1,4 @@
+// 1차 수정
 #ifndef THREADS_SYNCH_H
 #define THREADS_SYNCH_H
 

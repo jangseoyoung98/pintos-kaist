@@ -1,3 +1,4 @@
+// 1차 수정
 #include "threads/thread.h"
 #include <debug.h>
 #include <stddef.h>
