@@ -15,47 +15,32 @@
 #include "userprog/process.h"
 #endif
 
-/* Random value for struct thread's `magic' member.
-   Used to detect stack overflow.  See the big comment at the top
-   of thread.h for details. */
-#define THREAD_MAGIC 0xcd6abf4b
+#define THREAD_MAGIC 0xcd6abf4b	// (thread 구조체 멤버) magic에 할당할 임의의 값
+#define THREAD_BASIC 0xd42df210	// basic 스레드에 할당할 임의의 값 -> 그냥 대부분의 스레드?
 
-/* Random value for basic thread
-   Do not modify this value. */
-#define THREAD_BASIC 0xd42df210
+static struct list ready_list; 		// THREAD_READY 상태 리스트 - 해당 상태에 있는 스레드들 보관 (아직 실행은 X)
+static struct list sleep_list; 		// THREAD_BLOCKED 담아두는 리스트 
+static struct list destruction_req;	// THREAD_DYING 상태 리스트 - terminate를 요청한 스레드 리스트
 
-/* List of processes in THREAD_READY state, that is, processes
-   that are ready to run but not actually running. */
-static struct list ready_list;
-
-/* Idle thread. */
-static struct thread *idle_thread;
-
-/* Initial thread, the thread running init.c:main(). */
-static struct thread *initial_thread;
+static struct thread *idle_thread; 		// idle 스레드 (포인터)
+static struct thread *initial_thread; 	// 초기 스레드 (포인터)
 
 /* Lock used by allocate_tid(). */
-static struct lock tid_lock;
+static struct lock tid_lock;		// allocate_tid()에 사용되는 lock 구조체
 
-/* Thread destruction requests */
-static struct list destruction_req;
-
-/* Statistics. */
-static long long idle_ticks;    /* # of timer ticks spent idle. */
-static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
-static long long user_ticks;    /* # of timer ticks in user programs. */
+/* timer tick 횟수 (idle-kernel-user) */
+static long long idle_ticks;    // cpu가 'idle 상태'에 있을 때, timer tick이 발생한 횟수 
+static long long kernel_ticks;  // '커널 스레드'에서 timer tick이 발생한 횟수
+static long long user_ticks;    // '유저 프로그램'에서 timer tick이 발생한 횟수
 
 /* Scheduling. */
-#define TIME_SLICE 4            /* # of timer ticks to give each thread. */
-static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+#define TIME_SLICE 4            // 각 스레드별로 할당되는 time slice
+static unsigned thread_ticks;   // 이전 yield 이후부터의 timer tick 횟수
+bool thread_mlfqs;				// cpu 스케줄링 방식 (false면 RR, true면 mlfp 채택)
 
-/* If false (default), use round-robin scheduler.
-   If true, use multi-level feedback queue scheduler.
-   Controlled by kernel command-line option "-o mlfqs". */
-bool thread_mlfqs;
 
+/* 함수 선언 */
 static void kernel_thread (thread_func *, void *aux);
-
 static void idle (void *aux UNUSED);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
@@ -63,15 +48,14 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
-/* Returns true if T appears to point to a valid thread. */
-#define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
+#define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)		// 유효한 스레드인지 확인
 
 /* Returns the running thread.
  * Read the CPU's stack pointer `rsp', and then round that
  * down to the start of a page.  Since `struct thread' is
  * always at the beginning of a page and the stack pointer is
  * somewhere in the middle, this locates the curent thread. */
-#define running_thread() ((struct thread *) (pg_round_down (rrsp ())))
+#define running_thread() ((struct thread *) (pg_round_down (rrsp ())))	// running 스레드 반환
 
 
 // Global descriptor table for the thread_start.
@@ -79,46 +63,38 @@ static tid_t allocate_tid (void);
 // setup temporal gdt first.
 static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
-/* Initializes the threading system by transforming the code
-   that's currently running into a thread.  This can't work in
-   general and it is possible in this case only because loader.S
-   was careful to put the bottom of the stack at a page boundary.
-
-   Also initializes the run queue and the tid lock.
-
-   After calling this function, be sure to initialize the page
-   allocator before trying to create any threads with
-   thread_create().
-
-   It is not safe to call thread_current() until this function
-   finishes. */
-void
+/* 1) PintOS 스레딩 시스템 초기화 -> PintOS 로더가 페이지 상단에 최초의 스레드를 넣는다.
+	- run queue과 tid lock를 초기화 (함수 호출)
+	- 앞선 함수 호출로 페이지 할당기가 초기화 된다.
+	- thread_create() 함수 호출로 스레드 생성 
+*/
+void 
 thread_init (void) {
-	ASSERT (intr_get_level () == INTR_OFF);
+	ASSERT (intr_get_level () == INTR_OFF); // '인터럽트 불가능한 상황'이어야 한다.
 
-	/* Reload the temporal gdt for the kernel
-	 * This gdt does not include the user context.
-	 * The kernel will rebuild the gdt with user context, in gdt_init (). */
+	/* GDT 테이블 초기화 */
 	struct desc_ptr gdt_ds = {
 		.size = sizeof (gdt) - 1,
 		.address = (uint64_t) gdt
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
-	lock_init (&tid_lock);
-	list_init (&ready_list);
-	list_init (&destruction_req);
+	/* 전역 스레드 context를 초기화 한다. */
+	lock_init (&tid_lock);			// 1) tid lock 초기화
+	list_init (&ready_list);		// 2) ready_list 초기화 (이중 연결 리스트)
+	list_init (&sleep_list);		// sleep list 초기화
+	list_init (&destruction_req);	// 3) destruction_req 초기화 (이중 연결 리스트)
 
-	/* Set up a thread structure for the running thread. */
-	initial_thread = running_thread ();
-	init_thread (initial_thread, "main", PRI_DEFAULT);
-	initial_thread->status = THREAD_RUNNING;
-	initial_thread->tid = allocate_tid ();
+	/* 스레드 구조체를 셋팅한다. (runing thread 한 개 포함) */
+	initial_thread = running_thread ();					// 현재 실행 중인 스레드를 받아 initial_thread로 설정한다.
+	init_thread (initial_thread, "main", PRI_DEFAULT); 	// initial_thread를 셋팅 (이름 : main, 우선순위 : PRI_DEFAULT)
+	initial_thread->status = THREAD_RUNNING;			// initial_thread의 상태를 RUNNING으로 바꾼다.
+	initial_thread->tid = allocate_tid ();				// initial_thread의 tid를 할당한다.
 }
 
-/* Starts preemptive thread scheduling by enabling interrupts.
-   Also creates the idle thread. */
+/* 2) Starts preemptive(선점) thread scheduling by enabling interrupts. Also creates the idle thread.
+   유휴 스레드(준비된 스레드 가 없을 때 생성되는)를 생성해서 -> 인터럽트 실행 가능해지므로 -> 스레드 시작
+*/
 void
 thread_start (void) {
 	/* Create the idle thread. */
@@ -135,6 +111,7 @@ thread_start (void) {
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
+// 3)
 void
 thread_tick (void) {
 	struct thread *t = thread_current ();
@@ -155,6 +132,7 @@ thread_tick (void) {
 }
 
 /* Prints thread statistics. */
+// 4)
 void
 thread_print_stats (void) {
 	printf ("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
@@ -216,7 +194,7 @@ thread_create (const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
-void
+void  //★ hread_block()이 매우 low-level 이기 때문에, 대신 synchronization primitives를 사용하길 바랍니다. (A.3 synchronization 참조).
 thread_block (void) {
 	ASSERT (!intr_context ());
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -310,13 +288,13 @@ thread_yield (void) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
-thread_set_priority (int new_priority) {
+thread_set_priority (int new_priority) { // 현재의 우선 순위를 new_priority로 설정한다. 현재 thread가 더 이상 가장 높은 우선 순위를 가지지 않는 경우 yield 한다.
 	thread_current ()->priority = new_priority;
 }
 
 /* Returns the current thread's priority. */
 int
-thread_get_priority (void) {
+thread_get_priority (void) { // 현재 thread의 우선 순위를 반환한다. Priority donation이 있는 경우, 기부 받은 우선 순위를 반환한다.
 	return thread_current ()->priority;
 }
 
@@ -399,7 +377,7 @@ kernel_thread (thread_func *function, void *aux) {
    NAME. */
 static void
 init_thread (struct thread *t, const char *name, int priority) {
-	ASSERT (t != NULL);
+	ASSERT (t != NULL); // 
 	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
 	ASSERT (name != NULL);
 
@@ -577,12 +555,13 @@ schedule (void) {
 }
 
 /* Returns a tid to use for a new thread. */
+/* */
 static tid_t
 allocate_tid (void) {
 	static tid_t next_tid = 1;
 	tid_t tid;
 
-	lock_acquire (&tid_lock);
+	lock_acquire (&tid_lock); // -> synch.c
 	tid = next_tid++;
 	lock_release (&tid_lock);
 

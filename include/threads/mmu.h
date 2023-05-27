@@ -27,6 +27,7 @@ void pml4_set_accessed (uint64_t *pml4, const void *upage, bool accessed);
 #define pte_get_paddr(pte) (pg_round_down(*(pte)))
 
 /* Segment descriptors for x86-64. */
+// 가상 주소 공간을 세그먼트 단위로 분할하여 관리 
 struct desc_ptr {
 	uint16_t size;
 	uint64_t address;

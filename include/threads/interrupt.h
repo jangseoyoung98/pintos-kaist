@@ -4,16 +4,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Interrupts on or off? */
+/* Interrupts on or off? -> 인터럽트 비활성화/활성화 표시 */
 enum intr_level {
 	INTR_OFF,             /* Interrupts disabled. */
 	INTR_ON               /* Interrupts enabled. */
 };
 
-enum intr_level intr_get_level (void);
-enum intr_level intr_set_level (enum intr_level);
-enum intr_level intr_enable (void);
-enum intr_level intr_disable (void);
+enum intr_level intr_get_level (void); 				// 현재 인터럽트 상태 반환
+enum intr_level intr_set_level (enum intr_level);	// 수준(level)에 따라 인터럽트를 켜거나 끈다. + 이전 인터럽트 반환
+enum intr_level intr_enable (void);					// 인터럽트를 킨다.(INTR_ON) + 이전 인터럽트 반환
+enum intr_level intr_disable (void);				// 인터럽트를 끈다. (INTR_OFF) + 이전 인터럽트 반환 
 
 /* Interrupt stack frame. */
 struct gp_registers {

@@ -74,10 +74,11 @@ sema_down (struct semaphore *sema) {
 }
 
 /* Down or "P" operation on a semaphore, but only if the
-   semaphore is not already 0.  Returns true if the semaphore is
-   decremented, false otherwise.
-
-   This function may be called from an interrupt handler. */
+   semaphore is not already 0.(즉, 기다리지 않고 작업을 실행한다.)
+   Returns true if the semaphore is decremented, false otherwise.
+   (즉, sema가 성공적으로 감소된 경우 true / 이미 0이므로 기다리지 않고 감소할 수 없는 경우 false 반환)
+   This function may be called from an interrupt handler.    
+   */
 bool
 sema_try_down (struct semaphore *sema) {
 	enum intr_level old_level;
@@ -182,6 +183,7 @@ lock_init (struct lock *lock) {
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+/* 스레드가 공유 자원을 점유하게 된다 -> lock 발동 */
 void
 lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
@@ -195,6 +197,7 @@ lock_acquire (struct lock *lock) {
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
    thread.
+   (즉, 기다리지 않고 사용할 lock을 획득하려고 시도한다. 성공하면 true / lock이 이미 소유 되어 있으면 flase를 반환)
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
