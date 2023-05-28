@@ -1,0 +1,22 @@
+Kernel command line: -q run alarm-single
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  Interrupt 0x0e (#PF Page-Fault Exception) at rip=800420797c
+ cr2=fffffffffffffff8 error=               0
+rax ffffffffffffffd8 rbx 0000000000204400 rcx 00000080040b8000 rdx 0000000000000001
+rsp 0000008004000e50 rbp 0000008004000e70 rsi 000000000000760f rdi 0000008004220a80
+rip 000000800420797c r8 0000000000800420  r9 0000000004208e49 r10 0000000000000000
+r11 0000000000000000 r12 0000000000000000 r13 0000000000000000 r14 0000000000000000
+r15 0000000000000000 rflags 00200087
+es: 0010 ds: 0010 cs: 0008 ss: 0010
+Kernel PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
+Call stack: 0x8004213391 0x800420890e 0x8004208cc0 0x800420d15f 0x80042088a2 0x8004208cc0 0x800420ce9b 0x80042060f7.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 1 ticks
+Thread: 0 idle ticks, 1 kernel ticks, 0 user ticks
+Console: 1

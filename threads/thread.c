@@ -27,7 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
-
+static struct list sleep_list; // 2 추가
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +92,14 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
    It is not safe to call thread_current() until this function
    finishes. */
+   // 3 추가
+static bool thread_less(const struct list_elem *a_, const struct list_elem *b_, void *aux)
+{
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
+
+	return a->wakeup_tick < b->wakeup_tick;
+}
 void
 thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -587,4 +595,83 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+
+
+void thread_sleep(int64_t ticks)
+{ // 입력 : wake up 할 스레드의 wakeup_tick
+	/*
+	1) 현재 스레드가 idle 스레드인지 검사
+	* 인터럽트 비활성화
+	2) 호출된 스레드의 상태를 BLOCKED로 바꿈 -> sleep_list에 넣기
+	3) (wake up 할 스레드의 local tick) 매개변수로 받은 ticks를 저장
+	4) if(조건문) -> global tick 업데이트 + do_schedule() -> ★ global tick을 언제 업데이트 해야 하는지?
+	* 인터럽트 활성화
+	*/
+	enum intr_level old_level;
+	struct thread *curr = thread_current(); // RUNNING 상태에 있는 스레드를 반환
+	// ASSERT (!intr_context ());
+	
+	if (curr != idle_thread)
+	{	
+		
+		old_level = intr_disable();
+		// ★ RUNNING 상태에 있는 스레드가 있어야 하는지, 없어야 하는지..? -> 일단 running이어야 했다고 가정
+		// curr->status = THREAD_BLOCKED;
+		// list_push_back (&sleep_list, &curr->elem);
+		
+		curr->wakeup_tick = ticks;
+		printf("thread_sleep 통과!!"); // ###
+		printf("list intsert_ordered에 들어갈 curr->elem: %s", &curr->elem); // ###
+		// list_insert_ordered(&sleep_list, &curr->elem, thread_less, NULL);
+		list_push_back(&sleep_list, &curr->elem);
+		thread_block();
+		intr_set_level(old_level);
+	}
+	// do_schedule(THREAD_BLOCKED);
+	// ((uint8_t *) &(LIST_ELEM)->next
+	// }
+
+	
+}
+
+void wake_up(int64_t ticks)
+{
+	enum intr_level old_level;
+	struct list_elem *sleep_elem;
+	struct list_elem *next_elem;
+	struct thread *min_thread;
+	while(sleep_elem != list_end(&sleep_list)){
+		sleep_elem = list_begin(&sleep_list);
+		min_thread = list_entry(sleep_elem, struct thread, elem);
+		if (min_thread->wakeup_tick <= ticks){
+			list_remove(sleep_elem);
+			thread_unblock(min_thread);
+		}
+	}
+	// 불사조 코드
+	// while (sleep_elem != list_end(&sleep_list))
+	// {
+
+	// 	min_thread = list_entry(sleep_elem, struct thread, elem);
+	// 	// if (sleep_elem == NULL) 
+	// 	// 	break;
+	// 	// next_elem = list_next(sleep_elem);
+	// 	if (min_thread->wakeup_tick <= ticks)
+	// 	{
+	// 		// old_level = intr_disable();
+	// 		list_remove(sleep_elem); // sleeplist에서 지워
+	// 		// list_push_back(&ready_list, sleep_elem);
+	// 		// intr_set_level(old_level);
+	// 		thread_unblock(min_thread);
+	// 		// sleep_elem = next_elem;	   // 최소값 틱 갱신후 반복
+	// 	}
+	// 	// else
+	// 	// {
+	// 	// 	break;
+	// 	// 	// sleep_elem = next_elem;
+	// 	// }
+	// }
+	// intr_set_level(old_level); // 활성화
 }

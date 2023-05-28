@@ -424,9 +424,12 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 	ASSERT (elem != NULL);
 	ASSERT (less != NULL);
 
-	for (e = list_begin (list); e != list_end (list); e = list_next (e))
+	for (e = list_begin (list); e != list_end (list); e = list_next (e)){
+		printf("list_insert_ordered 함수 들어와서, less 실행 전!! + %s, %s", elem, e); //####
 		if (less (elem, e, aux))
 			break;
+	}
+	printf("list_insert_ordered 함수에서 less 실행 후!!"); // ###
 	return list_insert (e, elem);
 }
 

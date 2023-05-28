@@ -1,0 +1,12 @@
+FAIL
+Kernel panic in run: PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
+Call stack: 0x8004213391 0x800420890e 0x8004208cc0 0x800420d15f 0x80042088a2 0x8004208cc0 0x800420ce9b 0x80042060f7
+Translation of call stack:
+0x0000008004213391: debug_panic (lib/kernel/debug.c:32)
+0x000000800420890e: intr_handler (threads/interrupt.c:365)
+0x0000008004208cc0: intr_entry (threads/intr-stubs.o:?)
+0x000000800420d15f: timer_interrupt (devices/timer.c:133)
+0x00000080042088a2: intr_handler (threads/interrupt.c:352)
+0x0000008004208cc0: intr_entry (threads/intr-stubs.o:?)
+0x000000800420ce9b: timer_calibrate (devices/timer.c:59)
+0x00000080042060f7: main (threads/init.c:119)
