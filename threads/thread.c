@@ -241,7 +241,7 @@ bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 {
 	const struct thread *a = list_entry(a_, struct thread, elem);
 	const struct thread *b = list_entry(b_, struct thread, elem);
-	return a->priority < b->priority;
+	return a->priority > b->priority;
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -262,7 +262,6 @@ void thread_unblock(struct thread *t)
 	ASSERT(t->status == THREAD_BLOCKED);
 	// list_push_back(&ready_list, &t->elem);
 	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
-	list_reverse(&ready_list);
 	// 새로 추가된 스레드가 실행 중인 스레드보다 우선순위 높은 경우 cpu 선점하기 (추가!)
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
