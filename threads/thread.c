@@ -188,7 +188,6 @@ tid_t thread_create(const char *name, int priority,
 {
 	struct thread *t;
 	tid_t tid;
-
 	ASSERT(function != NULL);
 
 	/* Allocate thread. */
@@ -210,9 +209,16 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
-
+	//
 	/* Add to run queue. */
 	thread_unblock(t);
+	struct thread *curr = thread_current();
+	if (curr->priority < t->priority)
+	{
+		enum intr_level old_level = intr_disable();
+		do_schedule(curr->status);
+		intr_set_level(old_level);
+	}
 
 	return tid;
 }
@@ -229,6 +235,13 @@ void thread_block(void)
 	ASSERT(intr_get_level() == INTR_OFF);
 	thread_current()->status = THREAD_BLOCKED;
 	schedule();
+}
+bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
+				  void *aux UNUSED)
+{
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
+	return a->priority < b->priority;
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -247,7 +260,10 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	// list_push_back(&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+	list_reverse(&ready_list);
+	// 새로 추가된 스레드가 실행 중인 스레드보다 우선순위 높은 경우 cpu 선점하기 (추가!)
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
@@ -312,7 +328,8 @@ void thread_yield(void)
 
 	old_level = intr_disable();
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		// list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -320,7 +337,9 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-	thread_current()->priority = new_priority;
+
+	thread_current()->priority = new_priority; // 5월 29일 priority-> donation
+											   // thread_current()->donation = new_priority;
 }
 
 /* Returns the current thread's priority. */
@@ -424,6 +443,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+	// t->donation = priority;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -433,6 +453,13 @@ init_thread(struct thread *t, const char *name, int priority)
    idle_thread. */
 static struct thread *
 next_thread_to_run(void)
+// Round-robin 사용 우선순위 없이 먼저 들어온놈부터 시작한다.
+// ready_list 에 push 할 때 priority 순서에 맞추어 push 하는 방법
+// ready_list 에서 pop 할 때 priority 가 가장 높은 스레드를 찾아 pop 하는 방법
+// 전자로 하면 더 효율적인거같아. 여기서 list_order머시기 사용해보는거 어때?
+// priority 우선순위 확인해주는거 필요함
+// 현재 runnig 스레드의 priroty가 새로 생긴 스레드 priority보다 우선순위가 낮을때 cpu 점유권 넘겨줘야함
+// 글고 우선순위 높아도 돌고있으면 우선순위 넘겨주는 set donation 구현해야함
 {
 	if (list_empty(&ready_list))
 		return idle_thread;
@@ -570,7 +597,7 @@ schedule(void)
 	ASSERT(curr->status != THREAD_RUNNING);
 	ASSERT(is_thread(next));
 	/* Mark us as running. */
-	next->status = THREAD_RUNNING;
+	next->status = THREAD_RUNNING; // 컨텍스트 스위칭 cpu를 내려놓음
 
 	/* Start new time slice. */
 	thread_ticks = 0;
@@ -638,6 +665,7 @@ void thread_sleep(int64_t ticks)
 
 	curr->wakeup_tick = ticks; // 일어날 시간저장
 	list_push_back(&sleep_list, &curr->elem);
+	// list_insert_ordered(&sleep_list, &curr->elem, cmp_priority, NULL);
 	thread_block();
 
 	intr_set_level(old_level);
@@ -665,28 +693,4 @@ void wake_up(int64_t ticks)
 			sleep_elem = list_next(sleep_elem);
 		}
 	}
-	// 불사조 코드
-	// while (sleep_elem != list_end(&sleep_list))
-	// {
-
-	// 	min_thread = list_entry(sleep_elem, struct thread, elem);
-	// 	// if (sleep_elem == NULL)
-	// 	// 	break;
-	// 	// next_elem = list_next(sleep_elem);
-	// 	if (min_thread->wakeup_tick <= ticks)
-	// 	{
-	// 		// old_level = intr_disable();
-	// 		list_remove(sleep_elem); // sleeplist에서 지워
-	// 		// list_push_back(&ready_list, sleep_elem);
-	// 		// intr_set_level(old_level);
-	// 		thread_unblock(min_thread);
-	// 		// sleep_elem = next_elem;	   // 최소값 틱 갱신후 반복
-	// 	}
-	// 	// else
-	// 	// {
-	// 	// 	break;
-	// 	// 	// sleep_elem = next_elem;
-	// 	// }
-	// }
-	// intr_set_level(old_level); // 활성화
 }

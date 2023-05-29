@@ -93,7 +93,7 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // 1 추가
-
+	// int donation;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
@@ -147,4 +147,6 @@ void do_iret(struct intr_frame *tf);
 // 4 추가
 void wake_up(int64_t ticks);
 void thread_sleep(int64_t ticks);
+bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
+				  void *aux);
 #endif /* threads/thread.h */
