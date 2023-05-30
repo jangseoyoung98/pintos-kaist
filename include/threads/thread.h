@@ -94,12 +94,12 @@ struct thread
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // 1 추가
 	// 추가한거
-	int origin_prioriy; // donation 이후 우선순위를 초기화하기 위해 초기 우선순위 값을 저장할 필드
-	struct lock *lock_address;
-	struct list multiple_waiters
-	{
-		struct list_elem multiple_elem;
-	}
+	int origin_priority; // donation 이후 우선순위를 초기화하기 위해 초기 우선순위 값을 저장할 필드
+	struct lock *wait_on_lock;
+	// multiple 고민해야되는거
+	struct list donations;
+	struct list_elem d_elem;
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
@@ -158,4 +158,8 @@ void thread_sleep(int64_t ticks);
 bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 				  void *aux UNUSED);
 void test_max_priority(void);
+// firebird
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
 #endif /* threads/thread.h */

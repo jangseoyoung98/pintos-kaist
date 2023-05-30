@@ -67,8 +67,7 @@ void sema_down(struct semaphore *sema)
 	old_level = intr_disable();
 	while (sema->value == 0)
 	{
-		// list_push_back (&sema->waiters, &thread_current ()->elem);
-		// sema
+
 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
 		thread_block();
 	}
@@ -190,6 +189,7 @@ void lock_init(struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+// 락 요청
 void lock_acquire(struct lock *lock)
 {
 	/* lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여
@@ -199,7 +199,23 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!lock_held_by_current_thread(lock));
 
 	sema_down(&lock->semaphore);
-	lock->holder = thread_current();
+	// firebird!
+	// lock->holder = thread_current(); //주석 처리 if 문 안으로 넣음
+	// thread_runnig cpu를 점유하고있다는 뜻이고 holder
+	// 해당 lock의 holder
+	if (lock->holder == NULL)
+	{
+		lock->holder = thread_current();
+	}
+	else
+	{
+		struct thread *t = thread_current();
+		t->wait_on_lock = lock;
+		list_insert_ordered(&lock->semaphore.waiters, &t->elem, cmp_priority, NULL);
+		// donate_priority();
+		// lock 흭득 후 lock의 holder 갱신
+		// lock->holder = thread_current();
+	}
 }
 
 /* Tries to acquires LOCK and returns true if successful or false

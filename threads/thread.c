@@ -351,8 +351,8 @@ void thread_yield(void)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
-{	/* 스레드 우선순위 변경시 donation의 발생을 확인 하고 우선순위 변경을
-	위해 donation_priority()함수 추가 */
+{ /* 스레드 우선순위 변경시 donation의 발생을 확인 하고 우선순위 변경을
+  위해 donation_priority()함수 추가 */
 	// thread_current()->priority = new_priority;
 	// alarm-all-pass 클론 후, 추가 수정
 	enum intr_level old_level;
@@ -487,6 +487,16 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+	// 5월30일 23시 24분 Priority donation 추가 코드
+	t->origin_priority = priority;
+	t->wait_on_lock = NULL;
+	list_init(&t->donations);
+	// thread구조체의 추가한 d_elem 초기화 일단 안하는 쪽으로 했음
+	// 이유 - 기존 코드의 elem도 여서 초기화 안함!
+
+	// 5월30일 23시 24분 TODO 초기화
+	// struct list multiple_waiters;
+	// struct list_elem multiple_elem;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -728,30 +738,6 @@ void wake_up(int64_t ticks)
 			sleep_elem = list_next(sleep_elem);
 		}
 	}
-	// 불사조 코드
-	// while (sleep_elem != list_end(&sleep_list))
-	// {
-
-	// 	min_thread = list_entry(sleep_elem, struct thread, elem);
-	// 	// if (sleep_elem == NULL)
-	// 	// 	break;
-	// 	// next_elem = list_next(sleep_elem);
-	// 	if (min_thread->wakeup_tick <= ticks)
-	// 	{
-	// 		// old_level = intr_disable();
-	// 		list_remove(sleep_elem); // sleeplist에서 지워
-	// 		// list_push_back(&ready_list, sleep_elem);
-	// 		// intr_set_level(old_level);
-	// 		thread_unblock(min_thread);
-	// 		// sleep_elem = next_elem;	   // 최소값 틱 갱신후 반복
-	// 	}
-	// 	// else
-	// 	// {
-	// 	// 	break;
-	// 	// 	// sleep_elem = next_elem;
-	// 	// }
-	// }
-	// intr_set_level(old_level); // 활성화
 }
 
 // alarm-all-pass 클론 후, 수정본
@@ -761,4 +747,8 @@ bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 	const struct thread *a = list_entry(a_, struct thread, elem);
 	const struct thread *b = list_entry(b_, struct thread, elem);
 	return a->priority > b->priority;
+}
+//firebird
+void donate_priority(void){
+	
 }
