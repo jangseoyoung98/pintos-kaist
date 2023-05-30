@@ -213,10 +213,9 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
-
-	// alarm-all-pass 클론 후, 수정본
-	struct thread *curr = thread_current();
-	if (curr->priority < t->priority)
+	// firebird2
+	//  alarm-all-pass 클론 후, 수정본
+	if (thread_get_priority < t->priority)
 	{
 		thread_yield();
 	}
@@ -250,15 +249,6 @@ void thread_block(void)
    update other data. */
 void thread_unblock(struct thread *t)
 {
-	// enum intr_level old_level;
-
-	// ASSERT(is_thread(t));
-
-	// old_level = intr_disable();
-	// ASSERT(t->status == THREAD_BLOCKED);
-	// list_push_back(&ready_list, &t->elem);
-	// t->status = THREAD_READY;
-	// intr_set_level(old_level);
 
 	// alarm-all-pass 클론 후, 추가 수정
 	enum intr_level old_level;
@@ -325,16 +315,6 @@ void thread_exit(void)
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void)
 {
-	// struct thread *curr = thread_current();
-	// enum intr_level old_level;
-
-	// ASSERT(!intr_context());
-
-	// old_level = intr_disable();
-	// if (curr != idle_thread)
-	// 	list_push_back(&ready_list, &curr->elem);
-	// do_schedule(THREAD_READY);
-	// intr_set_level(old_level);
 
 	// alarm-all-pass 클론 후, 추가 수정
 	struct thread *curr = thread_current();
@@ -344,46 +324,37 @@ void thread_yield(void)
 	if (curr != idle_thread)
 		// list_push_back(&ready_list, &curr->elem);
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-	// intr_set_level(old_level);
+
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
-
+// firebird2
+// refresh ,test_max_priority추가만 함
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 { /* 스레드 우선순위 변경시 donation의 발생을 확인 하고 우선순위 변경을
   위해 donation_priority()함수 추가 */
 	// thread_current()->priority = new_priority;
 	// alarm-all-pass 클론 후, 추가 수정
-	enum intr_level old_level;
-	old_level = intr_disable();
 	struct thread *curr = thread_current();
-	curr->priority = new_priority;
+	// firebird2 origin에 저장
+	curr->origin_priority = new_priority;
+	// curr->priority = new_priority;
 	// list_sort(&ready_list, cmp_priority, NULL);
-	if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
-	{
-		thread_yield();
-	}
-	intr_set_level(old_level);
+	refresh_priority();	 // list_sort 대신 우선순위 변경으로 donation 정보 갱신 함수 refresh 사용
+	test_max_priority(); //
 }
-
+// firebird2
 /* alarm-all-pass 클론 후, 추가 수정 */
 void test_max_priority(void)
 {
+	/* 현재 수행중인 스레드와 가장 높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링 */
 	/* 임시 추가 */
-
-	struct thread *curr = thread_current();
-	thread_set_priority(curr->priority);
-	// enum intr_level old_level;
-	// old_level = intr_disable();
-	/* */
-	// struct thread *curr = thread_current();
-	// list_sort(&ready_list, cmp_priority, NULL);
-	// intr_set_level(old_level);
-	// if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
-	// {
-	//     thread_yield();
-	// }
+	struct thread *max_thread = list_begin(&ready_list);
+	if (cmp_priority(max_thread, &thread_current()->elem, NULL))
+	{
+		thread_yield();
+	}
 }
 
 /* Returns the current thread's priority. */
@@ -748,21 +719,61 @@ bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 	const struct thread *b = list_entry(b_, struct thread, elem);
 	return a->priority > b->priority;
 }
-// firebird
-// 인자를 안받아옴
-// 역할이 높은 priority를 기부하는 역할
-// waiters 애네들도 기부를 받냐?
-// lock을 원하는 애들
+// firebird2
+// thread_current() == 현재 cpu를 점유할 놈 즉 우선순위가 높은 ready_list에서 나온놈이라고 볼수있음
+// thread_current() != lock까지 가지고 실행되는놈이 아님
+// cpu 점유할놈이 가진 priority를 기존에 wait_on_lock -> holder(다른 락의 홀더들)들이 없을때까지
+// while(curr->wait_on_lock != NULL)
+// priority를 갱신한다.
 void donate_priority(void)
 {
-	enum intr_level old_level;
-	struct lock *lock;
-	struct thread *curr;
-	struct semaphore *sema;
-	lock->holder = thread_current();
-	sema = &(thread_current()->wait_on_lock->semaphore);
-	lock->holder->priority = list_entry(list_begin(&sema->waiters), struct thread, elem)->priority;
+
+	struct thread *curr = thread_current();
+
+	while (curr->wait_on_lock != NULL)
+	{
+		struct thread *a = curr->wait_on_lock->holder;
+		a->priority = curr->priority;
+		curr = a;
+	}
 }
+// firebird2
+// lock을 해제한 후 현재 스레드의 대기 리스트 갱신 기능하는 함수임
+// 시작부터 끝까지 반복문 돌려서 wait_on_lock이 lock이랑
+// 맞으면 donations에서 지움
 void remove_with_lock(struct lock *lock)
 {
+	struct thread *curr = thread_current();
+	struct list_elem *d_elem;
+
+	for (d_elem = list_begin(&curr->donations); d_elem != list_end(&curr->donations); d_elem = list_next(d_elem))
+	{
+		struct thread *t = list_entry(d_elem, struct thread, d_elem);
+		if (t->wait_on_lock == lock)
+			d_elem = list_remove(d_elem);
+	}
+}
+// firebird2
+// 스레드의 우선순위 변경됐을때 donation 고려해서 우선순위 다시 결정하는 함수임
+// 기다리는 애 없으면 우선순위를 origin에 기록
+// 있으면 기다리는 애들중에 제일 큰 우선순위를 가진 애가 기존의 priority보다 높으면 바꾸고 아니면 origin으로
+void refresh_priority(void)
+{
+	struct thread *t = thread_current();
+	if (!list_empty(&t->donations))
+	{
+		list_sort(&t->donations, cmp_priority, NULL);
+		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, elem)->priority)
+		{
+			t->priority = list_entry(list_begin(&t->donations), struct thread, elem)->priority;
+		}
+		else
+		{
+			t->priority = t->origin_priority;
+		}
+	}
+	else
+	{
+		t->priority = t->origin_priority;
+	}
 }

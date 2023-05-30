@@ -94,11 +94,10 @@ struct thread
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // 1 추가
 	// 추가한거
-	int origin_priority; // donation 이후 우선순위를 초기화하기 위해 초기 우선순위 값을 저장할 필드
-	struct lock *wait_on_lock;
-	// multiple 고민해야되는거
-	struct list donations;
-	struct list_elem d_elem;
+	int origin_priority;	   // donation 이후 우선순위를 초기화하기 위해 초기 우선순위 값을 저장할 필드
+	struct lock *wait_on_lock; // 스레드가 현재 얻기위해 기다리고있는 lock
+	struct list donations;	   // 나한테 priority나눠준 애들 리스트?
+	struct list_elem d_elem;   // donations 안에 들어갈 elem
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */

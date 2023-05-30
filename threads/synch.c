@@ -110,12 +110,14 @@ void sema_up(struct semaphore *sema)
 	ASSERT(sema != NULL);
 
 	old_level = intr_disable();
-	list_sort(&sema->waiters, cmp_priority, NULL);
-	if (!list_empty(&sema->waiters))
-		// sema
 
+	if (!list_empty(&sema->waiters))
+	{
+		// sema
+		list_sort(&sema->waiters, cmp_priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem));
+	}
 	sema->value++;
 	test_max_priority();
 	intr_set_level(old_level);
@@ -197,24 +199,24 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 	//
-	sema_down(&lock->semaphore);
-	// firebird!
-	// lock->holder = thread_current(); //주석 처리 if 문 안으로 넣음
-	// thread_runnig cpu를 점유하고있다는 뜻이고 holder
-	// 해당 lock의 holder
-	if (lock->holder == NULL)
+
+	// firebird2
+	// lock->holder가 NULL이면 그냥 바로 공유자원먹음
+	// NULL아니면 donations에 넣고 우선순위를 공유자원 먹고있는 홀더한테 기부함
+	// sema_down으로 waiters에 넣을때도 있고 안넣을때도 있다.
+	// 해당 스레드에 대한 처리가 끝났음으로 wait_on_lock을 NULL로
+	// 안되면 else 지우기 -> lock->holder = thread_current();에 대해 우근이형한테 추가 질문
+	struct thread *t = thread_current();
+
+	if (lock->holder != NULL)
 	{
-		lock->holder = thread_current();
-	}
-	else
-	{
-		struct thread *t = thread_current();
-		t->wait_on_lock = lock;
-		list_insert_ordered(&lock->semaphore.waiters, &t->elem, cmp_priority, NULL);
+		t->wait_on_lock = lock; // 스레드가 기다리는 lock 입력
+		list_insert_ordered(&lock->holder->donations, &t->d_elem, cmp_priority, NULL);
 		donate_priority();
-		// lock 흭득 후 lock의 holder 갱신
-		// lock->holder = thread_current();
 	}
+	sema_down(&lock->semaphore);
+	t->wait_on_lock = NULL; // 저장후 다시 초기화?
+	lock->holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -249,9 +251,10 @@ void lock_release(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
 
+	remove_with_lock(lock);
+	refresh_priority();
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
-
 }
 
 /* Returns true if the current thread holds LOCK, false
