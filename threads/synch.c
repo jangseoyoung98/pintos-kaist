@@ -67,7 +67,6 @@ void sema_down(struct semaphore *sema)
 	old_level = intr_disable();
 	while (sema->value == 0)
 	{
-
 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
 		thread_block();
 	}
@@ -197,7 +196,7 @@ void lock_acquire(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
-
+	//
 	sema_down(&lock->semaphore);
 	// firebird!
 	// lock->holder = thread_current(); //주석 처리 if 문 안으로 넣음
@@ -212,7 +211,7 @@ void lock_acquire(struct lock *lock)
 		struct thread *t = thread_current();
 		t->wait_on_lock = lock;
 		list_insert_ordered(&lock->semaphore.waiters, &t->elem, cmp_priority, NULL);
-		// donate_priority();
+		donate_priority();
 		// lock 흭득 후 lock의 holder 갱신
 		// lock->holder = thread_current();
 	}
@@ -252,6 +251,7 @@ void lock_release(struct lock *lock)
 
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
+
 }
 
 /* Returns true if the current thread holds LOCK, false

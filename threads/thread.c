@@ -748,7 +748,21 @@ bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 	const struct thread *b = list_entry(b_, struct thread, elem);
 	return a->priority > b->priority;
 }
-//firebird
-void donate_priority(void){
-	
+// firebird
+// 인자를 안받아옴
+// 역할이 높은 priority를 기부하는 역할
+// waiters 애네들도 기부를 받냐?
+// lock을 원하는 애들
+void donate_priority(void)
+{
+	enum intr_level old_level;
+	struct lock *lock;
+	struct thread *curr;
+	struct semaphore *sema;
+	lock->holder = thread_current();
+	sema = &(thread_current()->wait_on_lock->semaphore);
+	lock->holder->priority = list_entry(list_begin(&sema->waiters), struct thread, elem)->priority;
+}
+void remove_with_lock(struct lock *lock)
+{
 }
