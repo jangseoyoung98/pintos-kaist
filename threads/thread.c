@@ -63,7 +63,6 @@ static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
 
-
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -216,13 +215,13 @@ tid_t thread_create(const char *name, int priority,
 	thread_unblock(t);
 
 	// alarm-all-pass 클론 후, 수정본
-	// struct thread *curr = thread_current();
-    // if (curr->priority < t->priority)
-    // {
-    //     thread_yield();
-    // }
-	// **
-    test_max_priority();
+	struct thread *curr = thread_current();
+	if (curr->priority < t->priority)
+	{
+		thread_yield();
+	}
+
+	// test_max_priority();
 
 	return tid;
 }
@@ -260,17 +259,17 @@ void thread_unblock(struct thread *t)
 	// list_push_back(&ready_list, &t->elem);
 	// t->status = THREAD_READY;
 	// intr_set_level(old_level);
-	
+
 	// alarm-all-pass 클론 후, 추가 수정
 	enum intr_level old_level;
-    ASSERT(is_thread(t));
-    ASSERT(t->status == THREAD_BLOCKED);
-    // list_push_back(&ready_list, &t->elem);
-    old_level = intr_disable();
-    list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
-    // 새로 추가된 스레드가 실행 중인 스레드보다 우선순위 높은 경우 cpu 선점하기 (추가!)
-    t->status = THREAD_READY;
-    intr_set_level(old_level);
+	ASSERT(is_thread(t));
+	ASSERT(t->status == THREAD_BLOCKED);
+	// list_push_back(&ready_list, &t->elem);
+	old_level = intr_disable();
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+	// 새로 추가된 스레드가 실행 중인 스레드보다 우선순위 높은 경우 cpu 선점하기 (추가!)
+	t->status = THREAD_READY;
+	intr_set_level(old_level);
 }
 
 /* Returns the name of the running thread. */
@@ -339,34 +338,33 @@ void thread_yield(void)
 
 	// alarm-all-pass 클론 후, 추가 수정
 	struct thread *curr = thread_current();
-    enum intr_level old_level;
-    ASSERT(!intr_context());
-    old_level = intr_disable();
-    if (curr != idle_thread)
-        // list_push_back(&ready_list, &curr->elem);
-        list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-    // intr_set_level(old_level);
-    do_schedule(THREAD_READY);
+	enum intr_level old_level;
+	ASSERT(!intr_context());
+	old_level = intr_disable();
+	if (curr != idle_thread)
+		// list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
+	// intr_set_level(old_level);
+	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
-
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
-{
+{	/* 스레드 우선순위 변경시 donation의 발생을 확인 하고 우선순위 변경을
+	위해 donation_priority()함수 추가 */
 	// thread_current()->priority = new_priority;
 	// alarm-all-pass 클론 후, 추가 수정
 	enum intr_level old_level;
-    old_level = intr_disable();
+	old_level = intr_disable();
 	struct thread *curr = thread_current();
-    curr->priority = new_priority; 
-    // list_sort(&ready_list, cmp_priority, NULL);
-    // if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
-    // {
-    //     thread_yield();
-	// }
+	curr->priority = new_priority;
+	// list_sort(&ready_list, cmp_priority, NULL);
+	if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
+	{
+		thread_yield();
+	}
 	intr_set_level(old_level);
-
 }
 
 /* alarm-all-pass 클론 후, 추가 수정 */
@@ -376,16 +374,16 @@ void test_max_priority(void)
 
 	struct thread *curr = thread_current();
 	thread_set_priority(curr->priority);
-	enum intr_level old_level;
-    old_level = intr_disable();
+	// enum intr_level old_level;
+	// old_level = intr_disable();
 	/* */
 	// struct thread *curr = thread_current();
-	list_sort(&ready_list, cmp_priority, NULL);
-	intr_set_level(old_level);
-    if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
-    {	
-        thread_yield();
-	}
+	// list_sort(&ready_list, cmp_priority, NULL);
+	// intr_set_level(old_level);
+	// if (curr->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority)
+	// {
+	//     thread_yield();
+	// }
 }
 
 /* Returns the current thread's priority. */
@@ -758,10 +756,9 @@ void wake_up(int64_t ticks)
 
 // alarm-all-pass 클론 후, 수정본
 bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
-                  void *aux UNUSED)
+				  void *aux UNUSED)
 {
-    const struct thread *a = list_entry(a_, struct thread, elem);
-    const struct thread *b = list_entry(b_, struct thread, elem);
-    return a->priority > b->priority;
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
+	return a->priority > b->priority;
 }
-

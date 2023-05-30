@@ -93,7 +93,13 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // 1 추가
-
+	// 추가한거
+	int origin_prioriy; // donation 이후 우선순위를 초기화하기 위해 초기 우선순위 값을 저장할 필드
+	struct lock *lock_address;
+	struct list multiple_waiters
+	{
+		struct list_elem multiple_elem;
+	}
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
@@ -150,6 +156,6 @@ void thread_sleep(int64_t ticks);
 
 // alarm-all-pass 클론 후 추가 수정
 bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
-                  void *aux UNUSED);
+				  void *aux UNUSED);
 void test_max_priority(void);
 #endif /* threads/thread.h */
