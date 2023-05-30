@@ -147,4 +147,9 @@ void do_iret(struct intr_frame *tf);
 // 4 추가
 void wake_up(int64_t ticks);
 void thread_sleep(int64_t ticks);
+
+// alarm-all-pass 클론 후 추가 수정
+bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
+                  void *aux UNUSED);
+void test_max_priority(void);
 #endif /* threads/thread.h */
