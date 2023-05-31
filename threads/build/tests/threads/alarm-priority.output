@@ -1,11 +1,4 @@
-c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
-
-
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from Hard Disk..Kernel command line: -q run alarm-priority
+Kernel command line: -q run alarm-priority
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
 Pintos booting with: 
@@ -27,7 +20,7 @@ Executing 'alarm-priority':
 (alarm-priority) Thread priority 21 woke up.
 (alarm-priority) end
 Execution of 'alarm-priority' complete.
-Timer: 523 ticks
+Timer: 522 ticks
 Thread: 489 idle ticks, 34 kernel ticks, 0 user ticks
 Console: 880 characters output
 Keyboard: 0 keys pressed

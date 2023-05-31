@@ -771,9 +771,9 @@ void refresh_priority(void)
 	if (!list_empty(&t->donations))
 	{
 		list_sort(&t->donations, d_cmp_priority, NULL);
-		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, elem)->priority)
+		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, d_elem)->priority)
 		{
-			t->priority = list_entry(list_begin(&t->donations), struct thread, elem)->priority;
+			t->priority = list_entry(list_begin(&t->donations), struct thread, d_elem)->priority;
 		}
 		else
 		{

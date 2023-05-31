@@ -1,11 +1,3 @@
-c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
-
-
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from Hard Disk...
 Kernel command line: -q run priority-donate-nest
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
@@ -17,20 +9,19 @@ Boot complete.
 Executing 'priority-donate-nest':
 (priority-donate-nest) begin
 (priority-donate-nest) Low thread should have priority 32.  Actual priority: 32.
-(priority-donate-nest) Low thread should have priority 33.  Actual priority: 1768187245.
-Interrupt 0x0e (#PF Page-Fault Exception) at rip=8004207bff
- cr2=0000000000000018 error=               2
-rax 0000000000000000 rbx 0000000000000000 rcx 0000000000000000 rdx 0000000000000021
-rsp 0000008004235f60 rbp 0000008004235f70 rsi 0000008004235058 rdi 0000008004234048
-rip 0000008004207bff r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
-r11 0000000000000000 r12 0000000000000000 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000202
-es: 0010 ds: 0010 cs: 0008 ss: 0010
-Kernel PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
-Call stack: 0x8004213b71 0x8004208d13 0x80042090cc 0x800420a1f6 0x8004218e27 0x8004207324.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 23 ticks
-Thread: 0 idle ticks, 23 kernel ticks, 0 user ticks
-Console: 1
+(priority-donate-nest) Low thread should have priority 33.  Actual priority: 33.
+(priority-donate-nest) Medium thread should have priority 33.  Actual priority: 33.
+(priority-donate-nest) Medium thread got the lock.
+(priority-donate-nest) High thread got the lock.
+(priority-donate-nest) High thread finished.
+(priority-donate-nest) High thread should have just finished.
+(priority-donate-nest) Middle thread finished.
+(priority-donate-nest) Medium thread should just have finished.
+(priority-donate-nest) Low thread should have priority 31.  Actual priority: 31.
+(priority-donate-nest) end
+Execution of 'priority-donate-nest' complete.
+Timer: 25 ticks
+Thread: 0 idle ticks, 25 kernel ticks, 0 user ticks
+Console: 1102 characters output
+Keyboard: 0 keys pressed
+Powering off...

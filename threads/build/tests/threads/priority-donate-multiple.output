@@ -1,11 +1,3 @@
-c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
-
-
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from Hard Disk...
 Kernel command line: -q run priority-donate-multiple
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
@@ -17,11 +9,11 @@ Boot complete.
 Executing 'priority-donate-multiple':
 (priority-donate-multiple) begin
 (priority-donate-multiple) Main thread should have priority 32.  Actual priority: 32.
-(priority-donate-multiple) Main thread should have priority 33.  Actual priority: 97.
-(priority-donate-multiple) Thread b should have just finished.
-(priority-donate-multiple) Main thread should have priority 32.  Actual priority: 97.
+(priority-donate-multiple) Main thread should have priority 33.  Actual priority: 33.
 (priority-donate-multiple) Thread b acquired lock b.
 (priority-donate-multiple) Thread b finished.
+(priority-donate-multiple) Thread b should have just finished.
+(priority-donate-multiple) Main thread should have priority 32.  Actual priority: 32.
 (priority-donate-multiple) Thread a acquired lock a.
 (priority-donate-multiple) Thread a finished.
 (priority-donate-multiple) Thread a should have just finished.
