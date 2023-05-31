@@ -1,4 +1,11 @@
-Kernel command line: -q run alarm-simultaneous
+c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
+
+
+iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from Hard Disk..Kernel command line: -q run alarm-simultaneous
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
 Pintos booting with: 
@@ -28,8 +35,8 @@ Executing 'alarm-simultaneous':
 (alarm-simultaneous) iteration 4, thread 2: woke up 0 ticks later
 (alarm-simultaneous) end
 Execution of 'alarm-simultaneous' complete.
-Timer: 275 ticks
-Thread: 0 idle ticks, 275 kernel ticks, 0 user ticks
-Console: 1654 characters output
+Timer: 276 ticks
+Thread: 250 idle ticks, 26 kernel ticks, 0 user ticks
+Console: 1655 characters output
 Keyboard: 0 keys pressed
 Powering off...

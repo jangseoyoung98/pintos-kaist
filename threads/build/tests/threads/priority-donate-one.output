@@ -1,3 +1,11 @@
+c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
+
+
+iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from Hard Disk...
 Kernel command line: -q run priority-donate-one
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
@@ -8,14 +16,18 @@ Calibrating timer...  157,081,600 loops/s.
 Boot complete.
 Executing 'priority-donate-one':
 (priority-donate-one) begin
-(priority-donate-one) This thread should have priority 32.  Actual priority: 31.
-(priority-donate-one) This thread should have priority 33.  Actual priority: 31.
+(priority-donate-one) This thread should have priority 32.  Actual priority: 32.
+(priority-donate-one) This thread should have priority 33.  Actual priority: 1970365281.
+(priority-donate-one) acquire2: got the lock
+(priority-donate-one) acquire2: done
+(priority-donate-one) acquire1: got the lock
+(priority-donate-one) acquire1: done
 (priority-donate-one) acquire2, acquire1 must already have finished, in that order.
 (priority-donate-one) This should be the last line before finishing this test.
 (priority-donate-one) end
 Execution of 'priority-donate-one' complete.
-Timer: 23 ticks
-Thread: 0 idle ticks, 23 kernel ticks, 0 user ticks
-Console: 777 characters output
+Timer: 24 ticks
+Thread: 0 idle ticks, 24 kernel ticks, 0 user ticks
+Console: 949 characters output
 Keyboard: 0 keys pressed
 Powering off...
