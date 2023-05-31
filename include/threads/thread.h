@@ -161,4 +161,7 @@ void test_max_priority(void);
 void donate_priority(void);
 void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
+// 16:30
+bool d_cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
+					void *aux);
 #endif /* threads/thread.h */

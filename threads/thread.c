@@ -190,7 +190,8 @@ tid_t thread_create(const char *name, int priority,
 	tid_t tid;
 
 	ASSERT(function != NULL);
-
+	// 16:20 추가
+	int curr_front_priarity = thread_get_priority();
 	/* Allocate thread. */
 	t = palloc_get_page(PAL_ZERO);
 	if (t == NULL)
@@ -215,7 +216,7 @@ tid_t thread_create(const char *name, int priority,
 	thread_unblock(t);
 	// firebird2
 	//  alarm-all-pass 클론 후, 수정본
-	if (thread_get_priority < t->priority)
+	if (curr_front_priarity < t->priority)
 	{
 		thread_yield();
 	}
@@ -332,9 +333,7 @@ void thread_yield(void)
 // refresh ,test_max_priority추가만 함
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
-{ /* 스레드 우선순위 변경시 donation의 발생을 확인 하고 우선순위 변경을
-  위해 donation_priority()함수 추가 */
-	// thread_current()->priority = new_priority;
+{
 	// alarm-all-pass 클론 후, 추가 수정
 	struct thread *curr = thread_current();
 	// firebird2 origin에 저장
@@ -464,10 +463,6 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_init(&t->donations);
 	// thread구조체의 추가한 d_elem 초기화 일단 안하는 쪽으로 했음
 	// 이유 - 기존 코드의 elem도 여서 초기화 안함!
-
-	// 5월30일 23시 24분 TODO 초기화
-	// struct list multiple_waiters;
-	// struct list_elem multiple_elem;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -719,6 +714,13 @@ bool cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
 	const struct thread *b = list_entry(b_, struct thread, elem);
 	return a->priority > b->priority;
 }
+bool d_cmp_priority(const struct list_elem *a_, const struct list_elem *b_,
+					void *aux UNUSED)
+{
+	const struct thread *a = list_entry(a_, struct thread, d_elem);
+	const struct thread *b = list_entry(b_, struct thread, d_elem);
+	return a->priority > b->priority;
+}
 // firebird2
 // thread_current() == 현재 cpu를 점유할 놈 즉 우선순위가 높은 ready_list에서 나온놈이라고 볼수있음
 // thread_current() != lock까지 가지고 실행되는놈이 아님
@@ -746,11 +748,17 @@ void remove_with_lock(struct lock *lock)
 	struct thread *curr = thread_current();
 	struct list_elem *d_elem;
 
-	for (d_elem = list_begin(&curr->donations); d_elem != list_end(&curr->donations); d_elem = list_next(d_elem))
+	for (d_elem = list_begin(&curr->donations); d_elem != list_end(&curr->donations);)
 	{
 		struct thread *t = list_entry(d_elem, struct thread, d_elem);
 		if (t->wait_on_lock == lock)
+		{
 			d_elem = list_remove(d_elem);
+		}
+		else
+		{
+			d_elem = list_next(d_elem);
+		}
 	}
 }
 // firebird2
@@ -762,7 +770,7 @@ void refresh_priority(void)
 	struct thread *t = thread_current();
 	if (!list_empty(&t->donations))
 	{
-		list_sort(&t->donations, cmp_priority, NULL);
+		list_sort(&t->donations, d_cmp_priority, NULL);
 		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, elem)->priority)
 		{
 			t->priority = list_entry(list_begin(&t->donations), struct thread, elem)->priority;

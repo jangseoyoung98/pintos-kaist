@@ -208,15 +208,15 @@ void lock_acquire(struct lock *lock)
 	// 안되면 else 지우기 -> lock->holder = thread_current();에 대해 우근이형한테 추가 질문
 	struct thread *t = thread_current();
 
-	if (lock->holder != NULL)
+	if (lock->holder)
 	{
 		t->wait_on_lock = lock; // 스레드가 기다리는 lock 입력
-		list_insert_ordered(&lock->holder->donations, &t->d_elem, cmp_priority, NULL);
+		list_insert_ordered(&lock->holder->donations, &t->d_elem, d_cmp_priority, NULL);
 		donate_priority();
 	}
 	sema_down(&lock->semaphore);
 	t->wait_on_lock = NULL; // 저장후 다시 초기화?
-	lock->holder = thread_current();
+	lock->holder = t;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
