@@ -191,7 +191,7 @@ tid_t thread_create(const char *name, int priority,
 
 	ASSERT(function != NULL);
 	// 16:20 추가
-	int curr_front_priarity = thread_get_priority();
+	int curr_front_priority = thread_get_priority();
 	/* Allocate thread. */
 	t = palloc_get_page(PAL_ZERO);
 	if (t == NULL)
@@ -216,7 +216,7 @@ tid_t thread_create(const char *name, int priority,
 	thread_unblock(t);
 	// firebird2
 	//  alarm-all-pass 클론 후, 수정본
-	if (curr_front_priarity < t->priority)
+	if (curr_front_priority < t->priority)
 	{
 		thread_yield();
 	}
@@ -325,8 +325,8 @@ void thread_yield(void)
 	if (curr != idle_thread)
 		// list_push_back(&ready_list, &curr->elem);
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-
-	do_schedule(THREAD_READY);
+do_schedule
+	(THREAD_READY);
 	intr_set_level(old_level);
 }
 // firebird2
@@ -771,9 +771,9 @@ void refresh_priority(void)
 	if (!list_empty(&t->donations))
 	{
 		list_sort(&t->donations, d_cmp_priority, NULL);
-		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, elem)->priority)
+		if (t->origin_priority < list_entry(list_begin(&t->donations), struct thread, d_elem)->priority)
 		{
-			t->priority = list_entry(list_begin(&t->donations), struct thread, elem)->priority;
+			t->priority = list_entry(list_begin(&t->donations), struct thread, d_elem)->priority;
 		}
 		else
 		{

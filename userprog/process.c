@@ -204,6 +204,9 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	for (int i = 0; i< 1<<30; i++) {
+		continue;
+	}
 	return -1;
 }
 
@@ -335,6 +338,19 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
+	//6월4일 passing 구현
+	char *token, *save_ptr;
+	char *token_list [256];							//256 맞나..?
+	int count = 0;
+
+	token = strtok_r(file_name, " ", &save_ptr);
+	token_list[count] = token;
+	while(token != NULL) {	
+		token = strtok_r(NULL, " ", &save_ptr);
+		count++;
+		token_list[count] = token;
+	}												//이제 token_list를 어떻게 리턴하지..?
+
 	/* Open executable file. */
 	file = filesys_open (file_name);
 	if (file == NULL) {
@@ -416,6 +432,9 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	
+	argument_stack(token_list, count, if_);
+	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 
 	success = true;
 
@@ -425,6 +444,48 @@ done:
 	return success;
 }
 
+//✅6월4일 argument_stack구현
+void argument_stack(char** argument_list, int cnt, struct intr_frame *if_)
+{
+    // rdi : argc 저장
+    if_->R.rdi = cnt;
+	char * argu_addr[256];
+
+    // 1. 깃북 argv[4][..] ~ argv[0][..]
+    for (int i = cnt-1; i >= 0; i--){
+        														// 스택 공간 확보하기 (해당 원소의 길이만큼 주소 내리기) -> 역방향
+        int argv_len = strlen(argument_list[i]); 				// '\0' 넣을 공간 확보 : +1
+        if_->rsp -= (argv_len + 1);
+        														// 스택의 rsp에서 위로 쌓아 올리기 (원소 한 개씩) -> 순방향
+        memcpy(if_->rsp, argument_list[i], (argv_len + 1));  
+		argu_addr[i] = if_->rsp;
+    }
+    // 2. 깃북 word-align
+    // 패딩이 필요한지 확인한다.
+    // size_t paddings = (((uint8_t)if_->rsp % 8));
+
+    if(((uint8_t)if_->rsp % 8) != 0){ // 0이 아닌 경우(8의 배수 X) 패딩을 실행한다.
+		while((uint8_t)if_->rsp % 8 != 0) {
+			if_->rsp--;
+        	*(uint8_t*)if_->rsp = 0;
+		}
+    }
+
+    // 3. 깃북 argv[4]
+    if_->rsp -= 8;
+    memset(if_->rsp, 0, 8);
+	// 3. 깃북 argv[3] ~ argv[0]
+    for(int i = cnt-1; i >= 0; i--){
+		if_->rsp -= 8;
+		memcpy(if_->rsp, &argu_addr[i], 8);
+    }
+    
+    // 4. 깃북 return address
+	if_->rsp -= 8;
+	if_->R.rsi = if_->rsp;
+    memset(if_->rsp, 0, 8);
+	if_->R.rsi += 8;
+}
 
 /* Checks whether PHDR describes a valid, loadable segment in
  * FILE and returns true if so, false otherwise. */

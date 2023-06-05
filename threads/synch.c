@@ -198,14 +198,11 @@ void lock_acquire(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
-	//
-
 	// firebird2
 	// lock->holder가 NULL이면 그냥 바로 공유자원먹음
 	// NULL아니면 donations에 넣고 우선순위를 공유자원 먹고있는 홀더한테 기부함
 	// sema_down으로 waiters에 넣을때도 있고 안넣을때도 있다.
 	// 해당 스레드에 대한 처리가 끝났음으로 wait_on_lock을 NULL로
-	// 안되면 else 지우기 -> lock->holder = thread_current();에 대해 우근이형한테 추가 질문
 	struct thread *t = thread_current();
 
 	if (lock->holder)

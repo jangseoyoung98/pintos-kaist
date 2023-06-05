@@ -1,11 +1,3 @@
-c[?7l[2J[0mSeaBIOS (version 1.13.0-1ubuntu1.1)
-
-
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0138CA10+012CCA10 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from Hard Disk...
 Kernel command line: -q run priority-preempt
 0 ~ 9fc00 1
 100000 ~ 13e0000 1
@@ -25,7 +17,7 @@ Executing 'priority-preempt':
 (priority-preempt) The high-priority thread should have already completed.
 (priority-preempt) end
 Execution of 'priority-preempt' complete.
-Timer: 24 ticks
+Timer: 23 ticks
 Thread: 0 idle ticks, 24 kernel ticks, 0 user ticks
 Console: 818 characters output
 Keyboard: 0 keys pressed
