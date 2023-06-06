@@ -7,6 +7,13 @@
     "tuple": "c",
     "version": "c",
     "__string": "c",
-    "__availability": "c"
+    "__availability": "c",
+    "syscall.h": "c",
+    "cstdlib": "c",
+    "locale": "c",
+    "*.inc": "c",
+    "interrupt.h": "c",
+    "intrinsic.h": "c",
+    "flags.h": "c"
   }
 }

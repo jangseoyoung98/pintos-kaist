@@ -334,8 +334,7 @@ usage (void) {
 }
 
 
-/* Powers down the machine we're running on,
-   as long as we're running on Bochs or QEMU. */
+//끄는거
 void
 power_off (void) {
 #ifdef FILESYS
