@@ -211,7 +211,13 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
-
+	// 추가
+	struct file **new_fdt = (struct file **)palloc_get_page(PAL_ZERO);
+	t->fdt = new_fdt;
+	// t->fdt[0] = 0; // stdin 자리
+	// t->fdt[1] = 1; // stdout 자리
+	// t->fdt[2] = 2;
+	t->next_fd = 2;
 	/* Add to run queue. */
 	thread_unblock(t);
 	// firebird2
@@ -325,8 +331,7 @@ void thread_yield(void)
 	if (curr != idle_thread)
 		// list_push_back(&ready_list, &curr->elem);
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-do_schedule
-	(THREAD_READY);
+	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
 // firebird2
@@ -461,6 +466,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->origin_priority = priority;
 	t->wait_on_lock = NULL;
 	list_init(&t->donations);
+	t->exit_status = 0;
 	// thread구조체의 추가한 d_elem 초기화 일단 안하는 쪽으로 했음
 	// 이유 - 기존 코드의 elem도 여서 초기화 안함!
 }

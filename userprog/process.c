@@ -169,7 +169,19 @@ int process_exec(void *f_name)
 {
 	char *file_name = f_name;
 	bool success;
+	// 6월4일 passing 구현
+	char *token, *save_ptr;
+	char *token_list[256]; // 256 맞나..?
+	int count = 0;
 
+	token = strtok_r(file_name, " ", &save_ptr);
+	token_list[count] = token;
+	while (token != NULL)
+	{
+		token = strtok_r(NULL, " ", &save_ptr);
+		count++;
+		token_list[count] = token;
+	} // 이제 token_list를 어떻게 리턴하지..?
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -183,6 +195,9 @@ int process_exec(void *f_name)
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
+
+	argument_stack(token_list, count, &_if);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
@@ -348,20 +363,6 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current());
 
-	// 6월4일 passing 구현
-	char *token, *save_ptr;
-	char *token_list[256]; // 256 맞나..?
-	int count = 0;
-
-	token = strtok_r(file_name, " ", &save_ptr);
-	token_list[count] = token;
-	while (token != NULL)
-	{
-		token = strtok_r(NULL, " ", &save_ptr);
-		count++;
-		token_list[count] = token;
-	} // 이제 token_list를 어떻게 리턴하지..?
-
 	/* Open executable file. */
 	file = filesys_open(file_name);
 	if (file == NULL)
@@ -445,9 +446,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-
-	argument_stack(token_list, count, if_);
-	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 
 	success = true;
 

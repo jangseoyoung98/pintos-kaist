@@ -11,14 +11,23 @@
 // 추가 헤더 3개
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "userprog/process.h"
 // #include "user/syscall.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void halt(void);
 void exit(int status);
+// pid_t fork(const char *thread_name);
+int exec(const char *cmd_line);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
+int open(const char *file);
+int filesize(int fd);
+int write(int fd, const void *buffer, unsigned size);
+void close(int fd);
+int process_add_file(struct file *file);
+struct file *process_get_file(int fd);
 
 /* System call.
  *
@@ -44,6 +53,8 @@ void syscall_init(void)
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+	// 06/07 수정
+	//  lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -60,35 +71,41 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	{
 	case SYS_HALT:
 		halt();
+		break;
 	case SYS_EXIT:
 		exit(f->R.rdi);
+		break;
 	// case SYS_FORK:
 	// 	fork(f->R.rdi, f->R.rsi);
-	// case SYS_EXEC:
-	// 	exec(f->R.rdi);
-	// case SYS_WAIT:
-	// 	wait(f->R.rdi);
+	case SYS_EXEC:
+		exec(f->R.rdi);
+		break;
+		// case SYS_WAIT:
+		// 	wait(f->R.rdi);
+
 	case SYS_CREATE:
 		create(f->R.rdi, f->R.rsi);
+		break;
 	case SYS_REMOVE:
 		remove(f->R.rdi);
-		// case SYS_OPEN:
-		// 	open(f->R.rdi);
-		// case SYS_FILESIZE:
-		// 	filesize(f->R.rdi);
-		// case SYS_READ:
-		// 	read(f->R.rdi, f->R.rsi);
-		// case SYS_WRITE:
-		// 	write(f->R.rdi, f->R.rsi);
-		// case SYS_SEEK:
-		// 	seek(f->R.rdi, f->R.rsi);
-		// case SYS_TELL:
-		// 	tell(f->R.rdi);
-		// case SYS_CLOSE:
-		// 	close(f->R.rdi);
+		break;
+	// case SYS_OPEN:
+	// 	open(f->R.rdi);
+	// case SYS_FILESIZE:
+	// 	filesize(f->R.rdi);
+	// case SYS_READ:
+	// 	read(f->R.rdi, f->R.rsi);
+	case SYS_WRITE:
+		write(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	// case SYS_SEEK:
+	// 	seek(f->R.rdi, f->R.rsi);
+	// case SYS_TELL:
+	// 	tell(f->R.rdi);
+	case SYS_CLOSE:
+		close(f->R.rdi);
+		break;
 	}
-	printf("system call!\n");
-	thread_exit();
 }
 // 주소값이 유저 영역 주소값인지 확인 , 유저 영역 벗어나면 프로세스 종료 -1
 void check_address(void *addr)
@@ -101,26 +118,28 @@ void check_address(void *addr)
 void halt(void)
 {
 	power_off();
-	// syscall0(SYS_HALT);
-	// NOT_REACHED();
 }
 void exit(int status)
 {
+	struct thread *t = thread_current();
+	t->exit_status = status;
+	printf("%s: exit(%d)\n", t->name, status);
 	thread_exit();
-	// syscall1(SYS_EXIT, status);
-	// NOT_REACHED();
+}
+// fork 자리
+/*
+현재의 프로세스가 cmd_line에서 이름이 주어지는 실행가능한 프로세스로 변경됩니다. 이때 주어진 인자들을 전달합니다.
+성공적으로 진행된다면 어떤 것도 반환하지 않음
+*/
+int exec(const char *cmd_line)
+{
+	check_address(cmd_line);
+	return process_exec(cmd_line);
 }
 bool create(const char *file, unsigned initial_size)
 {
-	if (filesys_create(file, initial_size))
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-	// return syscall2(SYS_CREATE, file, initial_size);
+	check_address(file);
+	return filesys_create(file, initial_size);
 }
 bool remove(const char *file)
 {
@@ -133,4 +152,72 @@ bool remove(const char *file)
 		return false;
 	}
 	// return syscall1(SYS_REMOVE, file);
+}
+// 파일을 열 때 사용하는 시스템 콜
+// 파일이 없을 경우 실패
+// 성공 시 fd를 생성하고 반환, 실패 시 -1 반환
+// File : 파일의 이름 및 경로 정보
+int open(const char *file)
+{
+	check_address(file);
+	struct file *file_object = filesys_open(file); // 열려고 하는 파일 정보를 filesys_open()으로 받기
+
+	// 파일 없으면 -1
+	if (file_object == NULL)
+	{
+		return -1;
+	}
+	int fd = process_add_file(file_object);
+	return fd;
+}
+//  파일의 크기를 알려주는 시스템 콜
+//  성공 시 파일의 크기를 반환, 실패 시 -1 반환
+int filesize(int fd)
+{
+	// int size = file_length(fd);
+	// if()
+	// return size;
+}
+
+int write(int fd, const void *buffer, unsigned size)
+{
+	struct thread *t = thread_current();
+	struct file *file = process_get_file(fd);
+
+	if (fd == 1)
+	{
+		putbuf(buffer, size);
+		return size;
+	}
+	else
+	{
+		return file_write(file, buffer, size);
+	}
+}
+int process_add_file(struct file *file)
+{
+	struct thread *t = thread_current();
+	struct file **fdt = t->fdt;
+	int fd = t->next_fd; // fd값은 2부터 출발
+
+	while (t->fdt[fd] != NULL)
+	{
+		fd++;
+	}
+	t->next_fd = fd;
+	fdt[fd] = file;
+	return fd;
+}
+
+struct file *process_get_file(int fd)
+{
+	struct thread *t = thread_current();
+	struct file **file_dt = t->fdt;
+	struct file *file = file_dt[fd];
+	return file;
+}
+void close(int fd)
+{
+	struct file *file = process_get_file(fd);
+	file_close(fd);
 }

@@ -98,7 +98,10 @@ struct thread
 	struct lock *wait_on_lock; // 스레드가 현재 얻기위해 기다리고있는 lock
 	struct list donations;	   // 나한테 priority나눠준 애들 리스트?
 	struct list_elem d_elem;   // donations 안에 들어갈 elem
-
+	// sj추가
+	struct file **fdt; // 파일 디스크립트 테이블
+	int next_fd;	   // 파일 디스크립트 인덱스
+	int exit_status;   // 종료 프로세스 상태
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
