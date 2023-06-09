@@ -91,9 +91,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
         exit(f->R.rdi);
         break;
     case SYS_CREATE:
-        if(!(create(f->R.rdi, f->R.rsi))){ // 수정
-            exit(-1);
-        }
+		f->R.rax = create(f->R.rdi, f->R.rsi);
         break;
     case SYS_OPEN:
         f->R.rax = open(f->R.rdi);
@@ -204,20 +202,13 @@ int read(int fd, void *buffer, unsigned length) // ▶ 해당 파일로부터 �
 		char **pbuf = &buf;
 		int len= 0;
 		for(int i = 0; i < length; i++) {
-			// key = input_getc();
-			// if(key == NULL)
-			// {
-			// 	key = '\0';
-			// 	(&buf)++ = key;
-			// 	break;
-			// }
-			// buf++ = key;
 			key = input_getc();
 			*pbuf = key;
 			pbuf++;
-			if (key == -1)
+			if (key == NULL)
 			{
 				*pbuf = '\0';
+				break;
 			}
 			len++;
 		}
@@ -278,16 +269,20 @@ int write(int fd, const void *buffer, unsigned size) // ▶ 파일에 쓰기
     }
     return size;
 }
-void close(int fd) // ▶ 해당 파일을 닫기
-{	// FAIL : 전부
 
-	/* 필요 : filesys_close()
-	 * fd로 file 포인터를 찾아 해당 파일을 종료
-	 * 이때, 파일 디스크립터 테이블 내에 파일 포인터를 제거하는 방향으로 진행
-	*/
-	struct file *file = process_get_file(fd);
-	check_address(file);
-	file_close(file);
+void close(int fd) // :앞쪽_화살표: 해당 파일을 닫기 // :불:전체 수정
+{   // FAIL : 전부
+    /* 필요 : filesys_close()
+     * fd로 file 포인터를 찾아 해당 파일을 종료
+     * 이때, 파일 디스크립터 테이블 내에 파일 포인터를 제거하는 방향으로 진행
+    */
+    struct thread *t = thread_current();
+    struct file *file = process_get_file(fd);
+    // (추가) fd에 위치한 파일을 fdt에서 제거한다.
+    t->fdt[fd] = NULL;
+    t->next_fd--;
+    // check_address(file);
+    file_close(file);
 }
 
 // 3) 📌 구현 필요 : fork/exec/wait
@@ -319,12 +314,15 @@ int wait(pid_t temp)
 
 int filesize(int fd)
 {
-	//  파일의 크기를 알려주는 시스템 콜
-	//  성공 시 파일의 크기를 반환, 실패 시 -1 반환
-	
-	// int size = file_length(fd);
-	// if()
-	// return size;
+    //  파일의 크기를 알려주는 시스템 콜
+    //  성공 시 파일의 크기를 반환, 실패 시 -1 반환
+    struct file *file = process_get_file(fd);
+    int size = file_length(file);
+    if (size == NULL)
+    {
+        return -1;
+    }
+    return size;
 }
 bool remove(const char *file) // ▶ 파일을 제거
 {
@@ -345,11 +343,14 @@ bool remove(const char *file) // ▶ 파일을 제거
 }
 void seek (int fd, unsigned position) // ▶ 파일을 작성할 position을 찾음
 {
-	/* 필요 : file_seek() 
-	 * fd로 파일을 찾고
-	 * 파일 객체의 pos를 입력받은 position으로 변경한다.
-	*/
+    /* 필요 : file_seek()
+     * fd로 파일을 찾고
+     * 파일 객체의 pos를 입력받은 position으로 변경한다.
+     */
+    struct file *file = process_get_file(fd);
+    return file_seek(file, tell(fd));
 }
+
 unsigned tell(int fd) // ▶ 파일을 읽어야 할 위치를 찾음
 {
 	/* 필요 : file_tell()
@@ -384,8 +385,9 @@ int process_add_file(struct file *file)
 struct file *process_get_file(int fd)
 {
 	struct thread *t = thread_current();
-	struct file **file_dt = t->fdt;
-	struct file *file = file_dt[fd];
-	return file;
+    struct file **file_dt = t->fdt;
+    struct file *file = file_dt[fd];
+   
+    return file;
 }
 
