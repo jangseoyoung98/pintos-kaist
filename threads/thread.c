@@ -211,8 +211,8 @@ tid_t thread_create(const char *name, int priority,
 	// 추가
 	struct file **new_fdt = (struct file **)palloc_get_page(PAL_ZERO);
 	t->fdt = new_fdt;
-	// t->fdt[0] = 0; // stdin 자리
-	// t->fdt[1] = 1; // stdout 자리
+	t->fdt[0] = 0; // stdin 자리
+	t->fdt[1] = 1; // stdout 자리
 	// t->fdt[2] = 2;
 	t->next_fd = 2;
 	/* Add to run queue. */

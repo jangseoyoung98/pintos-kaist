@@ -227,7 +227,7 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	for (int i = 0; i < 1 << 30; i++)
+	for (int i = 0; i < 1 << 25; i++)
 	{
 		continue;
 	}
@@ -460,7 +460,7 @@ void argument_stack(char **argument_list, int cnt, struct intr_frame *if_)
 {
 	// rdi : argc 저장
 	if_->R.rdi = cnt;
-	char *argu_addr[256];
+	char *argu_addr[128];
 
 	// 1. 깃북 argv[4][..] ~ argv[0][..]
 	for (int i = cnt - 1; i >= 0; i--)
