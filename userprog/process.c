@@ -27,18 +27,18 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
-/* General process initializer for initd and other process. */
+/* initd 및 기타 프로세스를 위한 일반 프로세스 초기화 프로그램입니다. */
 static void
 process_init(void)
 {
 	struct thread *current = thread_current();
 }
 
-/* Starts the first userland program, called "initd", loaded from FILE_NAME.
- * The new thread may be scheduled (and may even exit)
- * before process_create_initd() returns. Returns the initd's
- * thread id, or TID_ERROR if the thread cannot be created.
- * Notice that THIS SHOULD BE CALLED ONCE. */
+/* FILE_NAME에서 로드한 "initd"라는 첫 번째 유저랜드 프로그램을 시작합니다.
+ * 새 스레드가 스케줄링될 수 있습니다(그리고 종료될 수도 있습니다).
+ * 종료할 수도 있습니다.
+ * initd의 스레드 아이디를 반환하거나, 스레드를 생성할 수 없는 경우 TID_ERROR를 반환합니다.
+ * 이 함수는 한 번만 호출해야 합니다. */
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
@@ -51,14 +51,18 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
+	// ✅ filename만 따로 파싱함 (에러 수정)
+	char *token, *save_ptr;
+	token = strtok_r(file_name, " ", &save_ptr);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
 }
 
-/* A thread function that launches first user process. */
+/* 첫 번째 사용자 프로세스를 시작하는 스레드 함수입니다. */
 static void
 initd(void *f_name)
 {
@@ -73,8 +77,8 @@ initd(void *f_name)
 	NOT_REACHED();
 }
 
-/* Clones the current process as `name`. Returns the new process's thread id, or
- * TID_ERROR if the thread cannot be created. */
+/* 현재 프로세스를 `name`으로 복제합니다. 새 프로세스의 스레드 ID를 반환합니다.
+ * 스레드를 생성할 수 없으면 TID_ERROR를 반환합니다. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
 	/* Clone current thread to new thread.*/
@@ -83,9 +87,9 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 }
 
 #ifndef VM
-/* Duplicate the parent's address space by passing this function to the
- * pml4_for_each. This is only for the project 2. */
-static bool
+/* 📌 fork() 구현!
+ * 이 함수를 전달하여 부모의 주소 공간을 복제합니다.
+ * pml4_for_each. 이것은 프로젝트 2에만 해당됩니다. */
 duplicate_pte(uint64_t *pte, void *va, void *aux)
 {
 	struct thread *current = thread_current();
@@ -116,10 +120,11 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 }
 #endif
 
-/* A thread function that copies parent's execution context.
- * Hint) parent->tf does not hold the userland context of the process.
- *       That is, you are required to pass second argument of process_fork to
- *       this function. */
+/* 📌 fork() 구현!
+ * 부모의 실행 컨텍스트를 복사하는 스레드 함수입니다.
+ * 힌트) parent->tf는 프로세스의 유저랜드 컨텍스트를 보유하지 않습니다.
+ * 즉, 프로세스_포크의 두 번째 인자를 이 함수에 전달해야 합니다.
+ * 이 함수에 전달해야 합니다. */
 static void
 __do_fork(void *aux)
 {
@@ -163,15 +168,16 @@ error:
 	thread_exit();
 }
 
-/* Switch the current execution context to the f_name.
- * Returns -1 on fail. */
+/* 현재 실행 컨텍스트를 f_name으로 전환합니다.
+ * 실패하면 -1을 반환합니다. */
 int process_exec(void *f_name)
 {
 	char *file_name = f_name;
 	bool success;
-	// 6월4일 passing 구현
+
+	// ✅ 1. Argument Passing - 문자열 파싱
 	char *token, *save_ptr;
-	char *token_list[256]; // 256 맞나..?
+	char *token_list[128];
 	int count = 0;
 
 	token = strtok_r(file_name, " ", &save_ptr);
@@ -181,7 +187,8 @@ int process_exec(void *f_name)
 		token = strtok_r(NULL, " ", &save_ptr);
 		count++;
 		token_list[count] = token;
-	} // 이제 token_list를 어떻게 리턴하지..?
+	} 
+
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -194,8 +201,10 @@ int process_exec(void *f_name)
 	process_cleanup();
 
 	/* And then load the binary */
-	success = load(file_name, &_if);
+	// ✅ 1. Argument Passing - load() 호출로 스택 셋팅 확인
+ 	success = load(file_name, &_if);
 
+	// ✅ 1. Argument Passing - argument_stack() 구현 및 호출 -> 유저 프로그램 실행 전, argc argv 인자들 스택에 셋팅b
 	argument_stack(token_list, count, &_if);
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
@@ -209,15 +218,10 @@ int process_exec(void *f_name)
 	NOT_REACHED();
 }
 
-/* Waits for thread TID to die and returns its exit status.  If
- * it was terminated by the kernel (i.e. killed due to an
- * exception), returns -1.  If TID is invalid or if it was not a
- * child of the calling process, or if process_wait() has already
- * been successfully called for the given TID, returns -1
- * immediately, without waiting.
- *
- * This function will be implemented in problem 2-2.  For now, it
- * does nothing. */
+/* 스레드 TID가 종료될 때까지 기다렸다가 종료 상태를 반환합니다.
+ * 만약 커널에 의해 종료되면 (즉, 예외로 인해 종료된 경우) -1을 반환합니다.
+ * TID가 유효하지 않거나 호출 프로세스의 자식이 아니거나, process_wait()가 성공적으로 호출된 경우, -1을 즉시 반환합니다.
+ * 이 함수는 문제 2-2에서 구현될 예정입니다. */
 int process_wait(tid_t child_tid UNUSED)
 {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
@@ -230,7 +234,7 @@ int process_wait(tid_t child_tid UNUSED)
 	return -1;
 }
 
-/* Exit the process. This function is called by thread_exit (). */
+/* 프로세스를 종료하는 함수로, thread_exit ()에 의해 호출된다. */
 void process_exit(void)
 {
 	struct thread *curr = thread_current();
@@ -242,7 +246,7 @@ void process_exit(void)
 	process_cleanup();
 }
 
-/* Free the current process's resources. */
+/* 현재 프로세스의 리소스를 해제합니다. */
 static void
 process_cleanup(void)
 {
@@ -271,8 +275,8 @@ process_cleanup(void)
 	}
 }
 
-/* Sets up the CPU for running user code in the nest thread.
- * This function is called on every context switch. */
+/* nest 스레드에서 사용자 코드를 실행하기 위한 CPU를 설정합니다.
+ * 이 함수는 모든 컨텍스트 전환 시 호출됩니다. */
 void process_activate(struct thread *next)
 {
 	/* Activate thread's page tables. */
@@ -333,7 +337,7 @@ struct ELF64_PHDR
 	uint64_t p_align;
 };
 
-/* Abbreviations */
+/* 약어 */
 #define ELF ELF64_hdr
 #define Phdr ELF64_PHDR
 
@@ -343,10 +347,9 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 						 uint32_t read_bytes, uint32_t zero_bytes,
 						 bool writable);
 
-/* Loads an ELF executable from FILE_NAME into the current thread.
- * Stores the executable's entry point into *RIP
- * and its initial stack pointer into *RSP.
- * Returns true if successful, false otherwise. */
+/* FILE_NAME에서 현재 스레드로 ELF 실행 파일을 로드합니다.
+ * 실행 파일의 진입점을 *RIP에, 초기 스택 포인터를 *RSP에 저장합니다.
+ * 성공하면 참을 반환하고, 그렇지 않으면 거짓을 반환합니다. */
 static bool
 load(const char *file_name, struct intr_frame *if_)
 {
@@ -444,9 +447,6 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	/* TODO: Your code goes here.
-	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-
 	success = true;
 
 done:
@@ -455,7 +455,7 @@ done:
 	return success;
 }
 
-// ✅6월4일 argument_stack구현
+// ✅ 1. Argument Passing - argument_stack구현
 void argument_stack(char **argument_list, int cnt, struct intr_frame *if_)
 {
 	// rdi : argc 저장
@@ -502,8 +502,8 @@ void argument_stack(char **argument_list, int cnt, struct intr_frame *if_)
 	if_->R.rsi += 8;
 }
 
-/* Checks whether PHDR describes a valid, loadable segment in
- * FILE and returns true if so, false otherwise. */
+/* 파일에 유효하고 로드 가능한 세그먼트가 있는지 확인합니다.
+ * FILE에 유효한 세그먼트를 기술하고 있는지 확인하고, 유효하면 참을, 그렇지 않으면 거짓을 반환합니다. */
 static bool
 validate_segment(const struct Phdr *phdr, struct file *file)
 {
@@ -548,9 +548,8 @@ validate_segment(const struct Phdr *phdr, struct file *file)
 }
 
 #ifndef VM
-/* Codes of this block will be ONLY USED DURING project 2.
- * If you want to implement the function for whole project 2, implement it
- * outside of #ifndef macro. */
+/* 이 블록의 코드는 프로젝트 2에서만 사용됩니다.
+ * 프로젝트 2 전체에 대해 함수를 구현하려면 매크로 외부에서 구현하세요. */
 
 /* load() helpers. */
 static bool install_page(void *upage, void *kpage, bool writable);
