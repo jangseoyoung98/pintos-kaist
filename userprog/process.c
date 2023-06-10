@@ -22,7 +22,7 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
-
+// 11
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
@@ -86,7 +86,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	/* Clone current thread to new thread.*/
 	// fork 추가
 	struct thread *cur = thread_current();
-	memcpy(&thread_current()->parent_if, if_, sizeof(struct intr_frame));
+	memcpy(&thread_current()->parent_if, if_, sizeof(struct intr_frame)); // 부모 프로세스 메모리 복사
 	tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, cur);
 
 	if (tid == TID_ERROR)
@@ -123,6 +123,8 @@ struct thread *get_child(int pid)
 /* 📌 fork() 구현!
  * 이 함수를 전달하여 부모의 주소 공간을 복제합니다.
  * pml4_for_each. 이것은 프로젝트 2에만 해당됩니다. */
+
+static bool
 duplicate_pte(uint64_t *pte, void *va, void *aux)
 {
 	struct thread *current = thread_current();
@@ -145,8 +147,11 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	}
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_USER);
-
+	newpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	if (parent_page == NULL)
+	{
+		return false;
+	}
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
@@ -198,13 +203,23 @@ __do_fork(void *aux)
 	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
-
+	if (parent->next_fd == FD_MAX)
+		goto error;
 	/* TODO: Your code goes here.
 	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-
+	// current->fdt[0] = parent->fdt[0];
+	// current->fdt[1] = parent->fdt[1];
+	// for (int i = 2; i < 64; i++)
+	// {
+	// 	if (parent->fdt[i] == NULL)
+	// 	{
+	// 		continue;
+	// 	}
+	// 	current->fdt[i] = file_duplicate(parent->fdt[i]);
+	// }
 	if (parent->next_fd == FD_MAX)
 		goto error;
 
@@ -222,6 +237,9 @@ __do_fork(void *aux)
 	}
 	if_.R.rax = 0;
 	current->next_fd = parent->next_fd;
+
+	// current->parent = parent;
+
 	process_init();
 	sema_up(&current->fork_sema);
 	/* Finally, switch to the newly created process. */

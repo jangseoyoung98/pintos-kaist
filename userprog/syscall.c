@@ -127,13 +127,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = fork(f->R.rdi);
 		break;
 	}
-	break;
-	case SYS_WAIT:
-		wait(f->R.rdi);
-		break;
-	case SYS_EXEC: // :벌레: 일부 성공..?
-		exec(f->R.rdi);
-		break;
+	// case SYS_WAIT:
+	// 	wait(f->R.rdi);
+	// 	break;
+	// case SYS_EXEC: // :벌레: 일부 성공..?
+	// 	exec(f->R.rdi);
+	// 	break;
 	default:
 		thread_exit();
 	}
@@ -164,11 +163,10 @@ bool create(const char *file, unsigned initial_size) // ▶ 파일 생성
 	// check_address(file);
 	// return filesys_create(file, initial_size);
 	check_address(file);
-	bool isCreated = filesys_create(file, initial_size);
 	// if(!isCreated){
 	// 	printf("파일 생성 실패");
 	// }
-	return isCreated;
+	return filesys_create(file, initial_size);
 }
 int open(const char *file) // ▶ 파일을 열기
 {						   // FAIL : missing/empty/bad-ptr/twice
@@ -302,7 +300,6 @@ pid_t fork(const char *thread_name)
 	성공적으로 진행된다면 어떤 것도 반환하지 않음
 	*/
 	struct thread *t = thread_current();
-
 	return process_fork(thread_name, &t->tf);
 	// return process_fork(thread_name, f);
 }
@@ -358,14 +355,8 @@ bool remove(const char *file) // ▶ 파일을 제거
 	 * 동작 : 성공 true, 실패 false 리턴
 	 */
 
-	if (filesys_remove(file))
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	check_address(file);
+	return filesys_remove(file);
 	// return syscall1(SYS_REMOVE, file);
 }
 void seek(int fd, unsigned position) // ▶ 파일을 작성할 position을 찾음
@@ -375,7 +366,7 @@ void seek(int fd, unsigned position) // ▶ 파일을 작성할 position을 찾�
 	 * 파일 객체의 pos를 입력받은 position으로 변경한다.
 	 */
 	struct file *file = process_get_file(fd);
-	return file_seek(file, tell(fd));
+	return file_seek(file, position);
 }
 
 unsigned tell(int fd) // ▶ 파일을 읽어야 할 위치를 찾음
