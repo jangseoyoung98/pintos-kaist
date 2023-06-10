@@ -1,10 +1,13 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES * (1 << 9)
 
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -22,6 +25,12 @@ enum thread_status
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t)-1) /* Error value for tid_t. */
+
+#define FD_MIN 2  /* Lowest File descriptor */
+#define FD_MAX 63 /* Highest File descriptor */
+
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
 
 /* Thread priorities. */
 #define PRI_MIN 0	   /* Lowest priority. */
@@ -105,12 +114,18 @@ struct thread
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
+	struct thread *parent;
+	struct intr_frame parent_if;
+	struct list child_list;
+	struct list_elem child_elem;
+	struct semaphore fork_sema;
+
 	/* ✨ 파일 디스크립터 테이블은 각 스레드 또는 프로세스마다 독립적으로 유지됨 (스레드 : 프로그램 실행 단위 / 파일 : 데이터 저장 단위)
 	 * 스레드는 파일에 대한 작업을 수행하기 위해 파일 디스크립터 사용 -> 이를 통해 스레드는 파일 시스템에서 데이터를 읽거나 쓸 수 있음
 	 * ★ 스레드가 파일을 open 하면, 운영체제는 그 파일에 대한 디스크립터를 생성하고, 이를 파일 디스크립터 테이블에 추가!
 	 *    이후, 스레드가 파일에서 읽기나 쓰기를 수행하려면, 그 파일의 디스크립터를 사용하여 연산을 수행
 	 *    그리고, 파일을 닫을 때는 해당 파일 디스크립터를 테이블에서 제거하고 운영체제에게 해당 파일에 대한 접근을 종료한다는 것을 알린다.
-	*/
+	 */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

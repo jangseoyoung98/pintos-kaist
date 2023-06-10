@@ -169,12 +169,12 @@ void thread_print_stats(void)
 }
 
 /* 주어진 이니셜을 가진 NAME이라는 이름의 새 커널 스레드를 생성합니다.
-   우선순위를 가진 새로운 커널 스레드를 생성하고, 
-   이 스레드는 AUX를 인수로 전달하는 FUNCTION을 실행하여 준비 큐에 추가합니다.  
+   우선순위를 가진 새로운 커널 스레드를 생성하고,
+   이 스레드는 AUX를 인수로 전달하는 FUNCTION을 실행하여 준비 큐에 추가합니다.
    새 스레드의 스레드 식별자를 반환하고, 생성에 실패하면 TID_ERROR를 반환합니다.
 
    thread_start()가 호출된 경우, 새 스레드가 스케줄링될 수 있습니다.
-   심지어 thread_create()가 반환되기 전에 종료할 수도 있습니다.  
+   심지어 thread_create()가 반환되기 전에 종료할 수도 있습니다.
    반대로, 원래의 스레드는 새 스레드가 스케줄되기 전까지 얼마든지 실행될 수 있습니다.
    스케줄링할 수 있습니다. 순서를 보장해야 하는 경우 세마포어 또는 다른 형태의 동기화를 사용하세요.
 
@@ -463,6 +463,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->origin_priority = priority;
 	t->wait_on_lock = NULL;
 	list_init(&t->donations);
+	list_init(&t->child_list);
+	sema_init(&t->fork_sema, 0);
 	t->exit_status = 0;
 	// thread구조체의 추가한 d_elem 초기화 일단 안하는 쪽으로 했음
 	// 이유 - 기존 코드의 elem도 여서 초기화 안함!

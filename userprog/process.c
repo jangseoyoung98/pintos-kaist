@@ -18,6 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -26,6 +27,7 @@ static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
+struct thread *get_child(int pid);
 
 /* initd 및 기타 프로세스를 위한 일반 프로세스 초기화 프로그램입니다. */
 static void
@@ -82,10 +84,41 @@ initd(void *f_name)
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
 	/* Clone current thread to new thread.*/
-	return thread_create(name,
-						 PRI_DEFAULT, __do_fork, thread_current());
+	// fork 추가
+	struct thread *cur = thread_current();
+	memcpy(&thread_current()->parent_if, if_, sizeof(struct intr_frame));
+	tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, cur);
+
+	if (tid == TID_ERROR)
+	{
+		return TID_ERROR;
+	}
+	struct thread *t = get_child(tid);
+	sema_down(&t->fork_sema); // 자식이 메모리에 load될때까지 기다림
+	if (t->exit_status == -1)
+	{
+		return TID_ERROR;
+	}
+	return tid;
 }
 
+struct thread *get_child(int pid)
+{
+	struct thread *par = thread_current();
+	struct list_elem *current_elem;
+
+	if (list_empty(&par->child_list))
+		return NULL;
+
+	for (current_elem = list_front(&par->child_list); current_elem != list_tail(&par->child_list); current_elem = list_next(current_elem))
+	{
+		if (list_entry(current_elem, struct thread, child_elem)->tid == pid)
+		{
+			return list_entry(current_elem, struct thread, child_elem);
+		}
+	}
+	return NULL;
+}
 #ifndef VM
 /* 📌 fork() 구현!
  * 이 함수를 전달하여 부모의 주소 공간을 복제합니다.
@@ -99,27 +132,39 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-
+	/* 1. 할 일: parent_page가 커널 페이지인 경우 즉시 반환합니다. */
+	if (is_kernel_vaddr(va))
+	{
+		return true;
+	}
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page(parent->pml4, va);
-
+	if (parent_page == NULL)
+	{
+		return false;
+	}
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	newpage = palloc_get_page(PAL_USER);
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
-
+	/* 4. 할 일: 상위 페이지를 새 페이지로 복제합니다
+	 * TODO: 부모 페이지의 쓰기 가능 여부 확인(쓰기 가능으로 설정)
+	 * TODO: 결과에 따름). */
+	memcpy(newpage, parent_page, PGSIZE);
+	writable = is_writable(pte);
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
 	}
 	return true;
 }
 #endif
-
 /* 📌 fork() 구현!
  * 부모의 실행 컨텍스트를 복사하는 스레드 함수입니다.
  * 힌트) parent->tf는 프로세스의 유저랜드 컨텍스트를 보유하지 않습니다.
@@ -131,8 +176,9 @@ __do_fork(void *aux)
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *)aux;
 	struct thread *current = thread_current();
+	current->parent = parent;
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
@@ -159,12 +205,30 @@ __do_fork(void *aux)
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
-	process_init();
+	if (parent->next_fd == FD_MAX)
+		goto error;
 
+	for (int i = 0; i < FD_MAX; i++)
+	{
+		struct file *file = parent->fdt[i];
+		if (file == NULL)
+			continue;
+		struct file *new_file;
+		if (file > 2)
+			new_file = file_duplicate(file);
+		else
+			new_file = file;
+		current->fdt[i] = new_file;
+	}
+	if_.R.rax = 0;
+	current->next_fd = parent->next_fd;
+	process_init();
+	sema_up(&current->fork_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
+	sema_up(&current->fork_sema);
 	thread_exit();
 }
 
@@ -187,7 +251,7 @@ int process_exec(void *f_name)
 		token = strtok_r(NULL, " ", &save_ptr);
 		count++;
 		token_list[count] = token;
-	} 
+	}
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -202,7 +266,7 @@ int process_exec(void *f_name)
 
 	/* And then load the binary */
 	// ✅ 1. Argument Passing - load() 호출로 스택 셋팅 확인
- 	success = load(file_name, &_if);
+	success = load(file_name, &_if);
 
 	// ✅ 1. Argument Passing - argument_stack() 구현 및 호출 -> 유저 프로그램 실행 전, argc argv 인자들 스택에 셋팅b
 	argument_stack(token_list, count, &_if);
