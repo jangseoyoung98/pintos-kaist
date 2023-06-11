@@ -306,15 +306,21 @@ int process_exec(void *f_name)
  * 이 함수는 문제 2-2에서 구현될 예정입니다. */
 int process_wait(tid_t child_tid UNUSED)
 {
-	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
-	 * XXX:       to add infinite loop here before
-	 * XXX:       implementing the process_wait. */
-	for (int i = 0; i < 1 << 25; i++)
-	{
-		continue;
-	}
-	return -1;
+    /* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
+     * XXX:       to add infinite loop here before
+     * XXX:       implementing the process_wait. */
+    struct thread *child = get_child(child_tid);
+    if (child == NULL)
+    {
+        return -1;
+    }
+    sema_down(&child->wait_sema); // 자식 프로세스 종료까지 대기
+    int child_exit_status = child->exit_status;
+    list_remove(&child->child_elem); // 자식 프로세스 디스크립터 삭제
+    sema_up(&child->free_sema);      // 자식 프로세스 디스크립터 삭제
+    return child_exit_status;        // 자식 종료 상태 반환
 }
+
 
 /* 프로세스를 종료하는 함수로, thread_exit ()에 의해 호출된다. */
 void process_exit(void)
@@ -324,7 +330,9 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
+	// file_close(curr->current_file);
+	sema_up(&curr->wait_sema);
+	sema_down(&curr->free_sema);
 	process_cleanup();
 }
 
@@ -455,7 +463,7 @@ load(const char *file_name, struct intr_frame *if_)
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
+	
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
 		|| ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Phdr) || ehdr.e_phnum > 1024)
@@ -463,7 +471,8 @@ load(const char *file_name, struct intr_frame *if_)
 		printf("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
-
+	//추가
+	t->current_file = file;
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
 	for (i = 0; i < ehdr.e_phnum; i++)

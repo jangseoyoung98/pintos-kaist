@@ -15,6 +15,8 @@
 #include "kernel/stdio.h"
 #include "threads/synch.h"
 #include <string.h>
+#include "lib/string.h"
+#include "threads/palloc.h"
 
 // #include "user/syscall.h"
 typedef int pid_t;
@@ -72,7 +74,7 @@ void syscall_init(void)
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 	// 06/07 수정
-	lock_init(&filesys_lock);
+	// lock_init(&filesys_lock);
 }
 
 void syscall_handler(struct intr_frame *f UNUSED)
@@ -109,10 +111,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = filesize(f->R.rdi);
 		break;
 	case SYS_REMOVE:
-		if (!(remove(f->R.rdi)))
-		{ // 수정
-			exit(-1);
-		}
+		f->R.rax = remove(f->R.rdi);
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -127,12 +126,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = fork(f->R.rdi);
 		break;
 	}
-	// case SYS_WAIT:
-	// 	wait(f->R.rdi);
-	// 	break;
-	// case SYS_EXEC: // :벌레: 일부 성공..?
-	// 	exec(f->R.rdi);
-	// 	break;
+	case SYS_WAIT:
+		f->R.rax = wait(f->R.rdi);
+		break;
+	case SYS_EXEC: // :벌레: 일부 성공..?
+		f->R.rax = exec(f->R.rdi);
+		break;
 	default:
 		thread_exit();
 	}
@@ -159,13 +158,7 @@ bool create(const char *file, unsigned initial_size) // ▶ 파일 생성
 	 * 필요 : check_address(), filesys_create()
 	 * 동작 : 성공 true, 실패 false 리턴
 	 */
-
-	// check_address(file);
-	// return filesys_create(file, initial_size);
 	check_address(file);
-	// if(!isCreated){
-	// 	printf("파일 생성 실패");
-	// }
 	return filesys_create(file, initial_size);
 }
 int open(const char *file) // ▶ 파일을 열기
@@ -228,9 +221,9 @@ int read(int fd, void *buffer, unsigned length) // ▶ 해당 파일로부터 �
 	}
 	else
 	{
-		lock_acquire(&filesys_lock);
+		// lock_acquire(&filesys_lock);
 		return file_read(file, buffer, length);
-		lock_release(&filesys_lock);
+		// lock_release(&filesys_lock);
 	}
 }
 int write(int fd, const void *buffer, unsigned size) // ▶ 파일에 쓰기
@@ -241,18 +234,6 @@ int write(int fd, const void *buffer, unsigned size) // ▶ 파일에 쓰기
 	 * fd가 1과 0이 아닌 경우, 버퍼로부터 size 만큼 값을 읽어와 해당 파일에 작성
 	 * lock으로 protection 수행
 	 */
-	// struct thread *t = thread_current();
-	// struct file *file = process_get_file(fd);
-
-	// if (fd == 1)
-	// {
-	// 	putbuf(buffer, size);
-	// 	return size;
-	// }
-	// else
-	// {
-	// 	return file_write(file, buffer, size);
-	// }
 	if (fd == 1)
 	{
 		putbuf(buffer, size);
@@ -269,9 +250,9 @@ int write(int fd, const void *buffer, unsigned size) // ▶ 파일에 쓰기
 		{
 			return -1;
 		}
-		lock_acquire(&filesys_lock);
+		// lock_acquire(&filesys_lock);
 		return file_write(file, buffer, size);
-		lock_release(&filesys_lock);
+		// lock_release(&filesys_lock);
 	}
 	return size;
 }
@@ -303,11 +284,7 @@ pid_t fork(const char *thread_name)
 	return process_fork(thread_name, &t->tf);
 	// return process_fork(thread_name, f);
 }
-// int exec(const char *cmd_line)
-// {
-// 	check_address(cmd_line);
-// 	return process_exec(cmd_line);
-// }
+
 int exec(const char *file)
 {
 	check_address(file);
@@ -331,7 +308,7 @@ int exec(const char *file)
 
 int wait(pid_t temp)
 {
-	return 81;
+	return process_wait(temp);
 }
 
 /* ****************** 함수 구현 명시 O + p/f 상관 X 함수 ****************** */
@@ -407,4 +384,4 @@ struct file *process_get_file(int fd)
 
 	return file;
 }
-//
+

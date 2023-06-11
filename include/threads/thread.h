@@ -109,6 +109,7 @@ struct thread
 	struct list_elem d_elem;   // donations 안에 들어갈 elem
 	// sj추가
 	struct file *fdt[64]; // 파일 디스크립트 테이블
+	struct file *current_file;
 	int next_fd;		  // 파일 디스크립트 인덱스
 	int exit_status;	  // 종료 프로세스 상태
 	/* Shared between thread.c and synch.c. */
@@ -119,6 +120,8 @@ struct thread
 	struct list child_list;
 	struct list_elem child_elem;
 	struct semaphore fork_sema;
+	struct semaphore wait_sema;
+	struct semaphore free_sema;
 	uint64_t *pml4;
 	/* ✨ 파일 디스크립터 테이블은 각 스레드 또는 프로세스마다 독립적으로 유지됨 (스레드 : 프로그램 실행 단위 / 파일 : 데이터 저장 단위)
 	 * 스레드는 파일에 대한 작업을 수행하기 위해 파일 디스크립터 사용 -> 이를 통해 스레드는 파일 시스템에서 데이터를 읽거나 쓸 수 있음

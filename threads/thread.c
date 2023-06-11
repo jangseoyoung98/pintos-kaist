@@ -467,6 +467,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_init(&t->donations);
 	list_init(&t->child_list);
 	sema_init(&t->fork_sema, 0);
+	sema_init(&t->wait_sema, 0);
+	sema_init(&t->free_sema, 0);
 
 	// thread구조체의 추가한 d_elem 초기화 일단 안하는 쪽으로 했음
 	// 이유 - 기존 코드의 elem도 여서 초기화 안함!
