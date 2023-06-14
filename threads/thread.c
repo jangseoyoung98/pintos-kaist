@@ -97,6 +97,7 @@ static uint64_t gdt[3] = {0, 0x00af9a000000ffff, 0x00cf92000000ffff};
 
    It is not safe to call thread_current() until this function
    finishes. */
+   // 🔥 핀토스의 초기 스레드를 위한 strcut thread를 만든다.
 void thread_init(void)
 {
    ASSERT(intr_get_level() == INTR_OFF);
@@ -122,6 +123,7 @@ void thread_init(void)
    initial_thread->tid = allocate_tid();
 }
 
+// 🔥스케줄러를 호출하기 위한 용도. (준비된 스레드가 없으면 idle 생성)
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void thread_start(void)
@@ -138,6 +140,7 @@ void thread_start(void)
    sema_down(&idle_started);
 }
 
+// 🔥스레드 통계를 추적하고, 타임 슬라이스가 만료될 때 스케줄러를 작동시킨다.
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void thread_tick(void)
@@ -159,6 +162,7 @@ void thread_tick(void)
       intr_yield_on_return();
 }
 
+// 🔥스레드 통계를 출력한다.
 /* Prints thread statistics. */
 void thread_print_stats(void)
 {
@@ -225,6 +229,7 @@ tid_t thread_create(const char *name, int priority,
    return tid;
 }
 
+//🔥 (실행중인) 스레드를 실행 상태 -> 블록 상태로 전환
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -239,6 +244,7 @@ void thread_block(void)
    schedule();
 }
 
+//🔥 스레드를 블록 상태 -> 준비 상태로 전환 (다시 실행되도록 허가)
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -277,6 +283,7 @@ thread_name(void)
    return thread_current()->name;
 }
 
+//🔥 현재 실행 중인 스레드 반환
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
@@ -296,12 +303,14 @@ thread_current(void)
    return t;
 }
 
+//🔥 현재 실행 중인 스레드의 tid를 반환
 /* Returns the running thread's tid. */
 tid_t thread_tid(void)
 {
    return thread_current()->tid;
 }
 
+//🔥 현재 스레드를 종료 시킴
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void thread_exit(void)
@@ -319,6 +328,7 @@ void thread_exit(void)
    NOT_REACHED();
 }
 
+//🔥실행할 새 스레드를 선택하는 스케줄러에게 cpu 제공
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void)
@@ -576,6 +586,7 @@ void do_iret(struct intr_frame *tf)
    It's not safe to call printf() until the thread switch is
    complete.  In practice that means that printf()s should be
    added at the end of the function. */
+//🔥문맥 교환 방식 정의 : 현재 실행 중인 스레드 상태 저장 -> 다음으로 실행할(스위칭) 스레드의 상태 복원
 static void
 thread_launch(struct thread *th)
 {

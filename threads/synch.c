@@ -84,6 +84,7 @@ cmp_donation_priority(const struct list_elem *a_, const struct list_elem *b_, vo
 	return a->priority > b->priority;
 }
 
+//🔥새로운 세마포어 구조체를 초기화 한다.
 void sema_init(struct semaphore *sema, unsigned value)
 {
 	ASSERT(sema != NULL);
@@ -92,6 +93,7 @@ void sema_init(struct semaphore *sema, unsigned value)
 	list_init(&sema->waiters);
 }
 
+//🔥down 연산을 sema에 실행한다. -> 세마 값이 양수가 될 때까지 기다렸다가 양수가 되면 1을 뺌
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -142,6 +144,7 @@ bool sema_try_down(struct semaphore *sema)
 	return success;
 }
 
+//🔥세마 값을 증가 시킨다. -> 세마 중에 기다리는 스레드가 있으면, 하나 깨운다.
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -199,6 +202,7 @@ sema_test_helper(void *sema_)
 	}
 }
 
+//🔥새로운 lock 구조체를 초기화 한다. (어떤 스레드도 소유하지 않음)
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -213,7 +217,6 @@ sema_test_helper(void *sema_)
    acquire and release it.  When these restrictions prove
    onerous, it's a good sign that a semaphore should be used,
    instead of a lock. */
-
 void lock_init(struct lock *lock)
 {
 	ASSERT(lock != NULL);
@@ -265,8 +268,8 @@ bool cmp_d_priority(const struct list_elem *a_elem, const struct list_elem *b_el
 	return a > b;
 }
 
-/* lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여
-priority donation을 수행하도록 수정 */
+//🔥현재 스레드에서 lock을 획득한다. (lock owner가 lock을 놓아주기를 기다려야 한다면 기다린다.)
+// lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여 priority donation을 수행하도록 수정
 // NOTE: lock_acquire를 이해한 대로 최종적으로 로직을 수정했음. 지금으로썬 더 수정할 필요 없어보임
 void lock_acquire(struct lock *lock)
 {
@@ -347,6 +350,7 @@ void remove_with_lock(struct lock *lock)
 	}
 }
 
+//🔥락을 놓아준다. (현재 스레드가 소유 중이어야 한다.)
 /* Releases LOCK, which must be owned by the current thread.
    This is lock_release function.
 
@@ -369,6 +373,7 @@ void lock_release(struct lock *lock)
 	sema_up(&lock->semaphore);
 }
 
+//🔥현재 스레드가 락을 갖고 있는지의 여부를 리턴
 /* Returns true if the current thread holds LOCK, false
    otherwise.  (Note that testing whether some other thread holds
    a lock would be racy.) */
@@ -379,6 +384,7 @@ bool lock_held_by_current_thread(const struct lock *lock)
 	return lock->holder == thread_current();
 }
 
+//🔥새로운 컨디션 변수를 초기화 한다.
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
@@ -409,7 +415,7 @@ void cond_init(struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-
+//🔥뒤엉키지 않게 락(lock)을 놓아주고 컨디션 변수(cond)가 다른 코드로부터 신호 받는 걸 기다린다. -> 신호 받으면 lock을 다시 획득
 void cond_wait(struct condition *cond, struct lock *lock)
 {
 	struct semaphore_elem waiter;
@@ -426,6 +432,7 @@ void cond_wait(struct condition *cond, struct lock *lock)
 	lock_acquire(lock);
 }
 
+//🔥cond를 기다리는 스레드가 있으면, 한 개의 스레드 깨운다. (이 함수 호출 전 락을 갖고 있다)
 /* If any threads are waiting on COND (protected by LOCK), then
    this function signals one of them to wake up from its wait.
    LOCK must be held before calling this function.
@@ -452,6 +459,7 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
+//🔥cond를 기다리는 스레드가 있으며면, 모든 스레드를 깨운다.
 void cond_broadcast(struct condition *cond, struct lock *lock)
 {
 	ASSERT(cond != NULL);
