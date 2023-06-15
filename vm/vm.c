@@ -66,6 +66,12 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+	// 1. 보조 페이지 테이블에 대응되는 가상 주소를 찾는다.
+
+	hash_find(spt->table, );
+
+	// 2. 그 가상 주소와 대응되는 페이지를 찾아서 반환
+
 
 	return page;
 }
@@ -187,13 +193,12 @@ vm_do_claim_page (struct page *page) {
 }
 
 /* Initialize new supplemental page table */
-// 💬 보조 페이지 테이블을 초기화 한다.
+// 😆 06.14 : 보조 페이지 테이블을 초기화 한다.
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	// 구현할 자료구조를 선택한다.
-	struct supplemental_page_table 
 	// initd로 새로운 프로세스가 시작하거나 __do_fork로 자식 프로세스가 생성될 때 호출된다.
-
+	hash_init(spt->table, spt->table->hash, spt->table->less, NULL);
 }
 
 /* Copy supplemental page table from src to dst */

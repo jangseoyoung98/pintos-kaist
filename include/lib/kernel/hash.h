@@ -48,19 +48,20 @@ typedef void hash_action_func (struct hash_elem *e, void *aux);
 
 /* Hash table. */
 struct hash {
-	size_t elem_cnt;            /* Number of elements in table. */
-	size_t bucket_cnt;          /* Number of buckets, a power of 2. */
-	struct list *buckets;       /* Array of `bucket_cnt' lists. */
-	hash_hash_func *hash;       /* Hash function. */
-	hash_less_func *less;       /* Comparison function. */
-	void *aux;                  /* Auxiliary data for `hash' and `less'. */
+	size_t elem_cnt;            /* 해시 테이블에 저장된 원소(아이템)의 수를 나타냅니다.  */
+	size_t bucket_cnt;          /* 해시 테이블의 버킷 수를 나타냅니다. 일반적으로 이는 2의 거듭제곱입니다. */
+	struct list *buckets;       /* 실제 해시 테이블의 버킷들을 가리키는 포인터를 담고 있습니다.  */
+	hash_hash_func *hash;       /* 해시 함수를 나타냅니다. 이 함수는 키를 입력으로 받아 해시 값을 생성합니다. */
+	hash_less_func *less;       /* 비교 함수를 나타냅니다. 이 함수는 두 개의 키를 비교하여 첫 번째 키가 두 번째 키보다 '작은지'를 판단합니다.
+								   이는 해시 충돌 해결이나 키 기반 검색에서 사용됩니다. */
+	void *aux;                  /* hash 함수와 less 함수에 추가로 전달되는 보조 데이터를 나타냅니다.  */
 };
 
 /* A hash table iterator. */
 struct hash_iterator {
-	struct hash *hash;          /* The hash table. */
-	struct list *bucket;        /* Current bucket. */
-	struct hash_elem *elem;     /* Current hash element in current bucket. */
+	struct hash *hash;          /* 순회할 해시 테이블을 가리키는 포인터입니다. */
+	struct list *bucket;        /* 현재 반복자가 위치한 버킷을 가리키는 포인터입니다. */
+	struct hash_elem *elem;     /*현재 반복자가 가리키고 있는 해시 테이블의 원소를 가리키는 포인터입니다. */
 };
 
 /* Basic life cycle. */
