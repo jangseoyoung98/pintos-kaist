@@ -1,24 +1,20 @@
 #ifndef __LIB_KERNEL_HASH_H
 #define __LIB_KERNEL_HASH_H
 
-/* Hash table.
+/* 해시 테이블.
  *
- * This data structure is thoroughly documented in the Tour of
- * Pintos for Project 3.
+ * 이 데이터 구조는 프로젝트 3의 핀토스 둘러보기에 자세히 설명되어 있습니다.
  *
- * This is a standard hash table with chaining.  To locate an
- * element in the table, we compute a hash function over the
- * element's data and use that as an index into an array of
- * doubly linked lists, then linearly search the list.
+ * 이것은 체인이 있는 표준 해시 테이블입니다.  
+ * 테이블에서 요소를 찾으려면 요소의 데이터에 대한 해시 함수를 계산하고 
+ * 이를 이중으로 연결된 목록 배열의 인덱스로 사용한 다음 목록을 선형적으로 검색합니다.
  *
- * The chain lists do not use dynamic allocation.  Instead, each
- * structure that can potentially be in a hash must embed a
- * struct hash_elem member.  All of the hash functions operate on
- * these `struct hash_elem's.  The hash_entry macro allows
- * conversion from a struct hash_elem back to a structure object
- * that contains it.  This is the same technique used in the
- * linked list implementation.  Refer to lib/kernel/list.h for a
- * detailed explanation. */
+ * 체인 목록은 동적 할당을 사용하지 않습니다.  
+ * 대신, 해시에 포함될 수 있는 각 구조체는 구조체 해시_엘렘 멤버를 포함해야 합니다.  
+ * 모든 해시 함수는 이러한 '구조체 해시_엘렘'에서 작동합니다.  
+ * hash_entry 매크로를 사용하면 구조체 해시 엘리먼트에서 이를 포함하는 구조체 객체로 다시 변환할 수 있습니다.  
+ * 이는 링크드 리스트 구현에서 사용된 것과 동일한 기법입니다.  
+ * 자세한 설명은 lib/kernel/list.h를 참조하세요. */
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -26,6 +22,7 @@
 #include "list.h"
 
 /* Hash element. */
+// 해시 테이블에 포함시키고 싶은 구조체의 멤버로 삽입되는 형태.
 struct hash_elem {
 	struct list_elem list_elem;
 };
@@ -35,12 +32,14 @@ struct hash_elem {
  * name of the outer structure STRUCT and the member name MEMBER
  * of the hash element.  See the big comment at the top of the
  * file for an example. */
+// 기존에 주어진 STRUCT에서 특정 member를 찾아낸다.
 #define hash_entry(HASH_ELEM, STRUCT, MEMBER)                   \
 	((STRUCT *) ((uint8_t *) &(HASH_ELEM)->list_elem        \
 		- offsetof (STRUCT, MEMBER.list_elem)))
 
 /* Computes and returns the hash value for hash element E, given
  * auxiliary data AUX. */
+// 해쉬값
 typedef uint64_t hash_hash_func (const struct hash_elem *e, void *aux);
 
 /* Compares the value of two hash elements A and B, given
@@ -55,20 +54,22 @@ typedef bool hash_less_func (const struct hash_elem *a,
 typedef void hash_action_func (struct hash_elem *e, void *aux);
 
 /* Hash table. */
+// hash 테이블은 hash_elem 타입의 원소로 연산한다!
 struct hash {
-	size_t elem_cnt;            /* Number of elements in table. */
-	size_t bucket_cnt;          /* Number of buckets, a power of 2. */
-	struct list *buckets;       /* Array of `bucket_cnt' lists. */
-	hash_hash_func *hash;       /* Hash function. */
-	hash_less_func *less;       /* Comparison function. */
-	void *aux;                  /* Auxiliary data for `hash' and `less'. */
+	size_t elem_cnt;            /* 해시 테이블에 저장된 원소(아이템)의 수를 나타냅니다.  */
+	size_t bucket_cnt;          /* 해시 테이블의 버킷 수를 나타냅니다. 일반적으로 이는 2의 거듭제곱입니다. */
+	struct list *buckets;       /* 실제 해시 테이블의 버킷들을 가리키는 포인터를 담고 있습니다.  */
+	hash_hash_func *hash;       /* 해시 함수를 나타냅니다. 이 함수는 키를 입력으로 받아 해시 값을 생성합니다. */
+	hash_less_func *less;       /* 비교 함수를 나타냅니다. 이 함수는 두 개의 키를 비교하여 첫 번째 키가 두 번째 키보다 '작은지'를 판단합니다.
+								   이는 해시 충돌 해결이나 키 기반 검색에서 사용됩니다. */
+	void *aux;                  /* hash 함수와 less 함수에 추가로 전달되는 보조 데이터를 나타냅니다.  */
 };
 
 /* A hash table iterator. */
 struct hash_iterator {
-	struct hash *hash;          /* The hash table. */
-	struct list *bucket;        /* Current bucket. */
-	struct hash_elem *elem;     /* Current hash element in current bucket. */
+	struct hash *hash;          /* 순회할 해시 테이블을 가리키는 포인터입니다. */
+	struct list *bucket;        /* 현재 반복자가 위치한 버킷을 가리키는 포인터입니다. */
+	struct hash_elem *elem;     /*현재 반복자가 가리키고 있는 해시 테이블의 원소를 가리키는 포인터입니다. */
 };
 
 /* Basic life cycle. */

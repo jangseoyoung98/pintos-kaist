@@ -92,6 +92,8 @@ pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {
  * virtual addresses, but none for user virtual addresses.
  * Returns the new page directory, or a null pointer if memory
  * allocation fails. */
+// ▶ 새로운 페이지 테이블을 생성하여 리턴한다.
+// 커널 가상 페이지 매핑만 담고 있다. (유저 가상 페이지 X)
 uint64_t *
 pml4_create (void) {
 	uint64_t *pml4 = palloc_get_page (0);
@@ -210,6 +212,8 @@ pml4_activate (uint64_t *pml4) {
  * address UADDR in pml4.  Returns the kernel virtual address
  * corresponding to that physical address, or a null pointer if
  * UADDR is unmapped. */
+// 💡 ▶ pml4에서 uaddr과 매핑된 프레임을 찾는다.
+// 성공 : uaddr이 매핑되어 있다면 해당 프레임에 대한 커널 가상 주소 리턴 / 실패 : NULL
 void *
 pml4_get_page (uint64_t *pml4, const void *uaddr) {
 	ASSERT (is_user_vaddr (uaddr));
@@ -229,6 +233,7 @@ pml4_get_page (uint64_t *pml4, const void *uaddr) {
  * otherwise it is read-only.
  * Returns true if successful, false if memory allocation
  * failed. */
+// ▶ pd에 유저 페이지(upage)와 프레임(kpage) 간의 매핑을 추가한다.
 bool
 pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw) {
 	ASSERT (pg_ofs (upage) == 0);
@@ -247,6 +252,7 @@ pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw) {
  * directory PD.  Later accesses to the page will fault.  Other
  * bits in the page table entry are preserved.
  * UPAGE need not be mapped. */
+// ▶ pml4에서 upage를 존재하지 않음으로 표시한다. -> 이후 이 페이지 접근 시 fault 발생
 void
 pml4_clear_page (uint64_t *pml4, void *upage) {
 	uint64_t *pte;

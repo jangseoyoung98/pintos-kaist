@@ -1,3 +1,5 @@
+/*  x86-64는 segmented 아키텍쳐입니다. Global Descriptor Table (GDT)는 사용중인 세그먼트들을 알려주는 표입니다. gdt.c, gdt.h 파일들은 GDT를 셋업합니다. 
+앞으로의 어떤 프로젝트에서도 이 파일들을 수정할 필요는 없습니다. GDT가 어떻게 작동하는지에 대해 궁금하다면 읽어보시면 됩니다.*/
 #include "userprog/gdt.h"
 #include <debug.h>
 #include "userprog/tss.h"

@@ -2,13 +2,15 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "kernel/hash.h"
+#include "kernel/list.h"
 
-enum vm_type {
-	/* page not initialized */
+enum vm_type { /* 가상 메모리 타입들 */
+	/* page not initialized : 초기화 되지 않은 페이지들 (디폴트) */
 	VM_UNINIT = 0,
-	/* page not related to the file, aka anonymous page */
+	/* page not related to the file, aka anonymous page : anonymous page */
 	VM_ANON = 1,
-	/* page that realated to the file */
+	/* page that realated to the file : file-backed page */
 	VM_FILE = 2,
 	/* page that hold the page cache, for project 4 */
 	VM_PAGE_CACHE = 3,
@@ -36,22 +38,26 @@ struct thread;
 
 #define VM_TYPE(type) ((type) & 7)
 
-/* The representation of "page".
+/*
  * This is kind of "parent class", which has four "child class"es, which are
  * uninit_page, file_page, anon_page, and page cache (project4).
  * DO NOT REMOVE/MODIFY PREDEFINED MEMBER OF THIS STRUCTURE. */
+ // ▶ 가상 메모리 공간의 페이지
 struct page {
-	const struct page_operations *operations;
-	void *va;              /* Address in terms of user space */
-	struct frame *frame;   /* Back reference for frame */
+	const struct page_operations *operations; // 페이지 작업용
+	void *va;              /* Address in terms of user space : 유저 영역의 가상 메모리 */
+	struct frame *frame;   /* Back reference for frame : 물리 메모리 */
 
 	/* Your implementation */
-
+	// 06.14 : 구현
+	struct hash_elem hash_elem;
+	
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
+	// 페이지의 속성은 아래 4개 중 하나가 됨
 	union {
-		struct uninit_page uninit;
-		struct anon_page anon;
+		struct uninit_page uninit; 
+		struct anon_page anon; 
 		struct file_page file;
 #ifdef EFILESYS
 		struct page_cache page_cache;
@@ -59,16 +65,20 @@ struct page {
 	};
 };
 
+
 /* The representation of "frame" */
 struct frame {
-	void *kva;
-	struct page *page;
+	void *kva; 			// 커널 가상 주소
+	struct page *page;	// 페이지 구조체를 담기 위한 멤버
+	
+	// 프레임 관리 인터페이스 구현 과정에서 다른 멤버들 추가 가능
 };
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and
  * call it whenever you needed. */
+//💡 3개의 함수 포인터를 포함한 하나의 함수 테이블
 struct page_operations {
 	bool (*swap_in) (struct page *, void *);
 	bool (*swap_out) (struct page *);
@@ -84,7 +94,15 @@ struct page_operations {
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
+
+// 06.14 : 구현
 struct supplemental_page_table {
+	struct hash table;
+
+	// 각각의 페이지에 대해 데이터가 존재하는 곳 (frame, disk, swap 중)
+	// 위에 상응하는 커널 가상 주소를 가리키는 포인터 정보
+	// active인지 inactive인지
+	
 };
 
 #include "threads/thread.h"
