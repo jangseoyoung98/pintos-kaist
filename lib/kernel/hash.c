@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
+#include "vm/vm.h"	// 06.15 추가
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
 	list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -275,7 +276,7 @@ uint64_t
 hash_int (int i) {
 	return hash_bytes (&i, sizeof i);
 }
-
+
 /* Returns the bucket in H that E belongs in. */
 static struct list *
 find_bucket (struct hash *h, struct hash_elem *e) {
@@ -392,3 +393,22 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	list_remove (&e->list_elem);
 }
 
+// ▶ 해시값을 구해준다. (요소의 데이터를 64bit unsigned int로 해싱한 값을 리턴한다.)
+// 06.15 구현
+uint64_t hash_hash_func (const struct hash_elem *e, void *aux){
+	// 1. hash_entry()로 element에 대한 vm_entry 구조체 검색
+	struct page *p = hash_entry(e, struct page, hash_elem);
+	
+	// 2. hash_int()를 이용해서 vm_etnry의 멤버 vaddr에 대한 해시값을 구하고 반환
+	return hash_bytes(&p->va, sizeof(p->va));
+
+	// 추가로, 해시 테이블에 vm_entry 삽입 시 어느 위치에 넣을지 계산
+}
+
+// ▶ 해시 element들의 크기를 비교해 준다. (두 hash_elem의 vaddr을 비교)
+// 06.15 구현
+bool hash_less_func (const struct hash_elem *a,const struct hash_elem *b,void *aux) {
+	struct page *a_ = hash_entry (a, struct page, hash_elem);
+	struct page *b_ = hash_entry (b, struct page, hash_elem);
+	return a_->va < b_->va;
+}

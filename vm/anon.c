@@ -18,6 +18,7 @@ static const struct page_operations anon_ops = {
 };
 
 /* Initialize the data for anonymous pages */
+// ▶ ANON 2 : 익명 페이지 서브시스템(하위 시스템) 초기화
 void
 vm_anon_init (void) {
 	/* TODO: Set up the swap_disk. */
@@ -25,6 +26,7 @@ vm_anon_init (void) {
 }
 
 /* Initialize the file mapping */
+// ▶ ANON
 bool
 anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */

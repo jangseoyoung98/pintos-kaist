@@ -214,7 +214,7 @@ void *
 pml4_get_page (uint64_t *pml4, const void *uaddr) {
 	ASSERT (is_user_vaddr (uaddr));
 
-	uint64_t *pte = pml4e_walk (pml4, (uint64_t) uaddr, 0);
+	uint64_t *pte = pml4e_walk (pml4, (uint64_t) uaddr, 0); // va에 대응되는 kva가 없으면 (0이므로) NULL 리턴
 
 	if (pte && (*pte & PTE_P))
 		return ptov (PTE_ADDR (*pte)) + pg_ofs (uaddr);

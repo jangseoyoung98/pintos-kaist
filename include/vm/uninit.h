@@ -21,4 +21,9 @@ struct uninit_page {
 void uninit_new (struct page *page, void *va, vm_initializer *init,
 		enum vm_type type, void *aux,
 		bool (*initializer)(struct page *, enum vm_type, void *kva));
+
+// 06.17 : 추가
+bool
+uninit_initializer (struct page *page, enum vm_type pyte, void * kva);
+
 #endif

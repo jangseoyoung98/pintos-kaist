@@ -14,4 +14,8 @@ struct file *process_get_file(int fd);
 void process_close_file(int fd);
 void remove_child_process(struct thread *cp);
 
+struct temp{
+    
+}
+
 #endif /* userprog/process.h */

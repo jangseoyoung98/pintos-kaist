@@ -43,6 +43,7 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 }
 
 /* Initalize the page on first fault */
+// 06.16 : 수정
 static bool
 uninit_initialize (struct page *page, void *kva) {
 	struct uninit_page *uninit = &page->uninit;
@@ -54,6 +55,15 @@ uninit_initialize (struct page *page, void *kva) {
 	/* TODO: You may need to fix this function. */
 	return uninit->page_initializer (page, uninit->type, kva) &&
 		(init ? init (page, aux) : true);
+		
+}
+
+// 06.17 : 구현
+bool
+uninit_initializer (struct page *page, enum vm_type pyte, void * kva) {
+	page->operations = &uninit_ops;
+
+	struct uninit_page *uninit_page = &page->uninit;
 }
 
 /* Free the resources hold by uninit_page. Although most of pages are transmuted

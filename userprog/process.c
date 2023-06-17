@@ -22,6 +22,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "threads/synch.h"
+#define VM
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -753,17 +754,28 @@ install_page(void *upage, void *kpage, bool writable)
     * address, then map our page there. */
    return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
 }
-#else
+
+// 06.17 : 수정중
+#else -> 주석 해제!
+
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+// lazy_load_segment와 load_segment 모두 실행 파일로부터 세그먼트가 로드되는 것을 구현한다.
+// 이 모든 페이지들은 지연적으로 로드되어, page fault를 발생시킨다.
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
    /* TODO: Load the segment from the file */
    /* TODO: This called when the first page fault occurs on address VA. */
    /* TODO: VA is available when calling this function. */
+
+   // 주어진 물리 메모리에 주어진 파일을 읽는다.
+
+   // 이 정보를 사용해 세그먼트를 읽을 파일을 찾고, 세그먼트를 메모리에서 읽는다.
+   
+
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -788,6 +800,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    ASSERT(pg_ofs(upage) == 0);
    ASSERT(ofs % PGSIZE == 0);
 
+   // 06.17 : 수정중   
    while (read_bytes > 0 || zero_bytes > 0)
    {
       /* Do calculate how to fill this page.
@@ -798,6 +811,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
       /* TODO: Set up aux to pass information to the lazy_load_segment. */
       void *aux = NULL;
+      aux = 
       if (!vm_alloc_page_with_initializer(VM_ANON, upage,
                                           writable, lazy_load_segment, aux))
          return false;
@@ -810,6 +824,12 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    return true;
 }
 
+// struct file {
+// 	struct inode *inode;        /* File's inode. */
+// 	off_t pos;                  /* Current position. */
+// 	bool deny_write;            /* Has file_deny_write() been called? */
+// };
+
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
 static bool
 setup_stack(struct intr_frame *if_)
@@ -821,6 +841,26 @@ setup_stack(struct intr_frame *if_)
     * TODO: If success, set the rsp accordingly.
     * TODO: You should mark the page is stack. */
    /* TODO: Your code goes here */
+   // 1. 한 개의 페이지 크기 만큼 USER_STACK 주소에서 내려 새로운 스택 바텀으로 설정한다.
+   // 2. vm_alloc_page()를 호출하여 바로 하나의 UNINIT 페이지를 생성한다. -> 4, 5는 NULL로 받는다.
+   
+   pg_round_down(stack_bottom);
+
+   bool temp_writable = 1;
+   vm_alloc_page(UNINIT, stack_bottom, temp_writable);
+   struct frame* temp_frame;
+   temp_frame = vm_get_frame();
+
+
+
+
+   /* Returns the running thread.
+ * Read the CPU's stack pointer `rsp', and then round that
+ * down to the start of a page.  Since `struct thread' is
+ * always at the beginning of a page and the stack pointer is
+ * somewhere in the middle, this locates the curent thread. */
+#define running_thread() ((struct thread *)(pg_round_down(rrsp())))
+
 
    return success;
 }
