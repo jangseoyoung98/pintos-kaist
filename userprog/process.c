@@ -873,7 +873,7 @@ setup_stack(struct intr_frame *if_)
    bool success = false;
    void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
-   vm_alloc_page(VM_MARKER_0, stack_bottom, 1);
+   vm_alloc_page(VM_ANON, stack_bottom, 1);
 
    if(vm_claim_page(stack_bottom)){
       if_->rsp = stack_bottom;

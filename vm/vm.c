@@ -80,21 +80,18 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 		/* TODO: Insert the page into the spt. */
 		
-		struct page *p = palloc_get_page(PAL_USER); // 06.18
-		typedef bool (*page_initializer) (struct page *, enum vm_type, void *kva);
-		page_initializer new_initializer = NULL;
+		struct page *p = malloc(sizeof(struct page)); // 06.18
 		switch (type){
 			// case VM_UNINIT:
 			// 	new_initializer = &uninit_initializer; //6.17
 			case VM_ANON:
-				new_initializer = &anon_initializer;	
+				uninit_new(p, upage, init, type, aux, anon_initializer);
 			case VM_FILE:
-				new_initializer = &file_backed_initializer;
+				uninit_new(p, upage, init, type, aux, file_backed_initializer);
 			// case VM_PAGE_CACHE:
 		}
-		uninit_new(p, upage, init, type, aux, new_initializer);
-		
-		spt_insert_page(spt, p);
+		p->writable = writable;
+		return spt_insert_page(spt, p);
 	}
 err:
 	return false;
@@ -112,25 +109,12 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
     /* TODO: Fill this function. */
 	
 	page = malloc(sizeof(struct page));
-	page->va = pg_round_down(va); // spt가 UNUSED인 경우..?
-
-	// temp_page.va = va;
-	// 구조체 초기화?
-
-	// struct hash_iterator i;
-	// hash_first (&i, &spt->table); // 해시 첫번째 요소로 초기화
-	// while (hash_next (&i)) {
-		
-	// page = hash_entry(hash_cur(&i), struct page, hash_elem);
-
-	// if(page->va == va)
-	// 	return page;
-	// }
-	// return NULL;
+	page->va = pg_round_down(va);
 
     e = hash_find(&spt->table, &page->hash_elem);
     e = (e != NULL ? hash_entry(e, struct page, hash_elem) : NULL);
-	free(page);
+	if (e == NULL)
+		free(page);
 	return e;
 }
 
@@ -197,8 +181,7 @@ vm_get_frame (void) {
         PANIC("todo");
 		// 추후 vm_evict_frame() 호출
     }
-    memset(frame, 0, sizeof(frame)); // ★ 어떤 용도였더라..?
-    // frame->kva = frame;
+    // memset(frame, 0, sizeof(frame));
     frame->page = NULL;
     ASSERT (frame != NULL);
     ASSERT (frame->page == NULL);
@@ -233,15 +216,24 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Your code goes here */
 	// 1. 페이지가 현재의 주소 공간에 매핑되어 있지 않은 경우
 	if (not_present){
-		page = palloc_get_page(PAL_USER);
-		page->va = addr;
-		return spt_insert_page(spt, page);
+		// page = malloc(sizeof(struct page));
+		// page->va = addr;
+		// spt_insert_page(spt, page);
+		vm_alloc_page(VM_ANON, addr, 1);
+		page = spt_find_page(spt, addr);
+		return vm_do_claim_page(page);
 	}
+
+	page = spt_find_page(spt, addr);
+	if (page_get_type(page) == VM_UNINIT){
+		swap_in(page, addr);
+	}
+
 	// 2. 유효하지 않은 메모리 접근 : 읽기 또는 쓰기가 허용되지 않은 영역에 접근하는 경우, 
 	//혹은 페이지 테이블에 매핑 정보는 있지만 실제 물리 메모리에는 존재하지 않는 경우에 발생할 수 있습니다.
 	
 	// 3. 지연된 페이지 폴트(Lazy Page Fault)
-	page = spt_find_page(spt, addr);
+	
 	if(!pml4_get_page(thread_current()->pml4, addr))
 		return vm_do_claim_page(page);
 	
@@ -281,6 +273,7 @@ vm_claim_page (void *va UNUSED) {
 	// 06.17 : page 대신 page->va로 바꿈	
 	// 06.18 : 디버깅 2차
 	if(page == NULL){
+		page = malloc(sizeof(struct page));
 		page->va = palloc_get_page(PAL_USER); // va 리턴
 	}
 
@@ -325,7 +318,7 @@ vm_do_claim_page (struct page *page) {
 	// pml4_set_page(&thread_current()->pml4, page, frame, 1);
 	// writable 수정해야됨!
 	
-	if(pml4_set_page(thread_current()->pml4, page->va, frame->kva, true)){ // 아닌가..?
+	if(pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){ // 아닌가..?
 
 	/* 기존 코드 */
 	return swap_in (page, frame->kva); // operations 셋팅에 성공하면 bool을 리턴함 (true..?)
