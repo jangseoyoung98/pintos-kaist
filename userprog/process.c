@@ -22,9 +22,11 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "threads/synch.h"
+#define VM
 #ifdef VM
 #include "vm/vm.h"
 #endif
+
 
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
@@ -753,17 +755,61 @@ install_page(void *upage, void *kpage, bool writable)
     * address, then map our page there. */
    return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
 }
-#else
+
+// 06.17 : 수정중
+#else // -> 주석 해제!
+static bool
+install_page(void *upage, void *kpage, bool writable)
+{
+   struct thread *t = thread_current();
+
+   /* Verify that there's not already a page at that virtual
+    * address, then map our page there. */
+   return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
+}
+
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+// lazy_load_segment와 load_segment 모두 실행 파일로부터 세그먼트가 로드되는 것을 구현한다.
+// 이 모든 페이지들은 지연적으로 로드되어, page fault를 발생시킨다.
+// 06.18 : 디버깅 1차 (aux를 바로 쓰지 않고, temp_aux에 할당해 이를 통해 전부 접근함)
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
+
    /* TODO: Load the segment from the file */
    /* TODO: This called when the first page fault occurs on address VA. */
    /* TODO: VA is available when calling this function. */
+   
+   // aux에는 NULL이 담겨있다.
+   // 이 정보를 사용해 세그먼트를 읽을 파일을 찾고, 세그먼트를 메모리에서 읽는다.
+   /* Get a page of memory. */
+      uint8_t *kpage = palloc_get_page(PAL_USER);
+      if (kpage == NULL)
+         return false;
+      
+      // 06.18 : 디버깅 1차
+      struct lazy_load_file* temp_aux = (struct lazy_load_file*)aux;
+
+      /* Load this page. */
+      if (file_read(temp_aux->file, kpage, temp_aux->page_read_bytes) != (int)temp_aux->page_read_bytes)
+      {
+         palloc_free_page(kpage);
+         return false;
+      }
+      memset(kpage + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
+
+      /* Add the page to the process's address space. */
+      // writable 수정해야됨!
+      if (!install_page(page->va, kpage, 1))
+      {
+         printf("fail\n");
+         palloc_free_page(kpage);
+         return false;
+      }
+   
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -788,6 +834,8 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    ASSERT(pg_ofs(upage) == 0);
    ASSERT(ofs % PGSIZE == 0);
 
+   // 06.17 : 수정중
+   file_seek(file, ofs);
    while (read_bytes > 0 || zero_bytes > 0)
    {
       /* Do calculate how to fill this page.
@@ -797,11 +845,17 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* TODO: Set up aux to pass information to the lazy_load_segment. */
-      void *aux = NULL;
-      if (!vm_alloc_page_with_initializer(VM_ANON, upage,
-                                          writable, lazy_load_segment, aux))
+      // void *aux = NULL;
+      struct lazy_load_file *aux = malloc(sizeof(struct lazy_load_file));
+      aux->file = file;
+      aux->page_read_bytes = page_read_bytes;
+      aux->page_zero_bytes = page_zero_bytes;
+      
+      if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux)){
+         free(aux);
          return false;
-
+      }
+      free(aux);
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -810,13 +864,21 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    return true;
 }
 
+
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
+// 06.17 구현!
 static bool
 setup_stack(struct intr_frame *if_)
 {
    bool success = false;
    void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
+   vm_alloc_page(VM_MARKER_0, stack_bottom, 1);
+
+   if(vm_claim_page(stack_bottom)){
+      if_->rsp = stack_bottom;
+      success = true;
+   }
    /* TODO: Map the stack on stack_bottom and claim the page immediately.
     * TODO: If success, set the rsp accordingly.
     * TODO: You should mark the page is stack. */
