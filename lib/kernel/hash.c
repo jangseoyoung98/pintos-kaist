@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
+#include "vm/vm.h"
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
 	list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -18,6 +19,8 @@ static struct hash_elem *find_elem (struct hash *, struct list *,
 static void insert_elem (struct hash *, struct list *, struct hash_elem *);
 static void remove_elem (struct hash *, struct hash_elem *);
 static void rehash (struct hash *);
+bool hash_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+uint64_t hash_hash (const struct hash_elem *p_, void *aux UNUSED);
 
 /* Initializes hash table H to compute hash values using HASH and
    compare hash elements using LESS, given auxiliary data AUX. */
@@ -275,7 +278,7 @@ uint64_t
 hash_int (int i) {
 	return hash_bytes (&i, sizeof i);
 }
-
+
 /* Returns the bucket in H that E belongs in. */
 static struct list *
 find_bucket (struct hash *h, struct hash_elem *e) {
@@ -392,3 +395,19 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	list_remove (&e->list_elem);
 }
 
+/* Returns true if page a precedes page b. */
+bool
+hash_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux ) {
+  const struct page *a = hash_entry (a_, struct page, hash_elem);
+  const struct page *b = hash_entry (b_, struct page, hash_elem);
+
+  return a->va < b->va;
+}
+
+/* Returns a hash value for page p. */
+uint64_t
+hash_hash (const struct hash_elem *p_, void *aux ) {
+  const struct page *p = hash_entry (p_, struct page, hash_elem);
+  return hash_bytes (&p->va, sizeof p->va);
+}
