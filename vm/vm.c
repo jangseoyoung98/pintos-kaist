@@ -6,6 +6,7 @@
 #include "threads/mmu.h"
 #include "lib/string.h"
 
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -81,7 +82,7 @@ err:
 
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
-spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
+spt_find_page (struct supplemental_page_table *spt, void *va) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
 	
@@ -99,8 +100,8 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 
 /* Insert PAGE into spt with validation. */
 bool
-spt_insert_page (struct supplemental_page_table *spt UNUSED,
-		struct page *page UNUSED) {
+spt_insert_page (struct supplemental_page_table *spt,
+		struct page *page) {
 	int succ = false;
 	/* TODO: Fill this function. */
 	if(hash_insert(&spt->table, &page->hash_elem) == NULL) // 삽입 성공하면 NULL 리턴 (기존에 있으면 NULL 아님)
@@ -162,8 +163,31 @@ vm_get_frame (void) {
 }
 
 /* Growing the stack. */
-static void
-vm_stack_growth (void *addr UNUSED) {
+// 06.24
+// ▶ addr을 통해 UNINIT 페이지를 만들고 앞서 생성한 stack_bottom 값을 설정
+bool
+vm_stack_growth (void *addr) {
+
+	struct thread* cur_thread = thread_current();
+	struct page* page = NULL;
+	bool succ = true;
+
+	void* page_up = cur_thread->stack_bottom - PGSIZE;
+	while(page_up > addr){
+		vm_alloc_page(VM_ANON, page_up, 1);
+		if(!vm_claim_page(page_up))
+			return false;
+		// page = spt_find_page(&cur_thread->spt, page_up); 
+		// vm_do_claim_page(page);
+
+		cur_thread->stack_bottom = page_up;
+		page_up = cur_thread->stack_bottom - PGSIZE;
+	}
+	if(!vm_alloc_page(VM_ANON, page_up, 1)){
+		return false;
+	}
+	cur_thread->stack_bottom = page_up;
+	return true;
 }
 
 /* Handle the fault on write_protected page */
@@ -172,19 +196,51 @@ vm_handle_wp (struct page *page UNUSED) {
 }
 
 /* Return true on success */
+// 06.23 : 구현 1차
+// 스택 확장이 가능한지 여부를 먼저 검사한다.
 bool
-vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
-		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
-	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
+vm_try_handle_fault (struct intr_frame *f, void *addr,
+		bool user, bool write, bool not_present) {
+	
+	struct thread* cur_thread = thread_current();
+	
+	struct supplemental_page_table *spt = &cur_thread->spt;
 	struct page *page = NULL;
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
-	if (is_kernel_vaddr(addr) || !addr)	{
-		return false;
-	}
-	page = spt_find_page(spt, addr);
 
-	return vm_do_claim_page(page);
+	// 1. 주소 유효성 검사
+	// if(!user){ // 유저 모드에서 엑세스 한 경우 -> 일단 false 리턴
+	// 	return false;
+	// }
+	if (is_kernel_vaddr(addr) || !addr || !not_present)	{ // 주소가 커널 영역에 존재, 주소에서 데이터 얻을 수 없음, 읽기 전용 페이지에서 쓰기 시도 -> 프로세스 종료 + 프로세스 자원 해제
+		return false;
+	}	
+	
+	page = spt_find_page(spt, addr);
+	if(page != NULL)
+		goto done;
+
+	if(addr <= cur_thread->stack_bottom && addr >= (f->rsp - 8)){
+		// if(addr < USER_STACK - (1 << 20)) // 스택 확장 최대 1MB 
+		// 	return false;
+
+		cur_thread->rsp_stack = f->rsp; // 현재 스레드(가 위치할 곳)의 주솟값
+		if(!vm_stack_growth(addr)) // 스택을 확장하고 + 해당 주소에 페이지를 할당함
+			return false;
+	}
+	goto done;
+
+	// addr 이전의 페이지까지는 앞서 할당했기 때문에, 이젠 addr 페이지에 프레임을 할당할 차례!
+	// page = spt_find_page(spt, addr);
+	// if(!vm_do_claim_page(page)) 
+	// 	return false;
+done:
+	// 06.28
+	// 페이지 폴트가 발생하면 물리적 프레임이 즉시 할당되고, 내용이 파일에서 메모리로 복사된다.
+	if(!vm_claim_page(pg_round_down(addr)))
+		return false;
+	
+	return true;
+
 }
 
 /* Free the page.
@@ -193,6 +249,14 @@ void
 vm_dealloc_page (struct page *page) {
 	destroy (page);
 	free (page);
+
+// 06.23 -> 아래 거는 나중에!!!
+/* palloc_get_page()를 이용해서 물리메모리 할당 */
+/* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
+와 swapping에서 다룸*/
+/* VM_BIN일 경우 load_file()함수를 이용해서 물리메모리에 로드 */
+/* install_page를 이용해서 물리페이지와 가상페이지 맵핑 */
+/* 로드 성공 여부 반환 */
 }
 
 /* Claim the page that allocate on VA. */
@@ -237,52 +301,32 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 }
 
 /* Copy supplemental page table from src to dst */
+// 06.23 : Revisit 완료
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst ,
 		struct supplemental_page_table *src ) {
-	bool succ = true;
 	struct hash_iterator i;
 
 	hash_first (&i, &src->table);
 	while (hash_next (&i))
 	{
 		struct page *par_page = hash_entry (hash_cur (&i), struct page, hash_elem);
-
-		// par_page의 정보를 저장
-		void *par_va = par_page->va;
-		bool writable = par_page->writable;
-
-		// par_page의 타입
-		enum vm_type ty = page_get_type(par_page);
-
-		// par_page의 타입에 따라 다른 방식으로 할당.
+		vm_alloc_page_with_initializer(page_get_type(par_page), par_page->va, par_page->writable, par_page->anon.init, par_page->anon.aux);
 		
-		switch (ty) {
-			case (VM_UNINIT):
-				vm_alloc_page(VM_ANON, par_va, writable);
-				struct frame *child_page_frame1 = spt_find_page(dst, par_va)->frame;
-				child_page_frame1 = vm_get_frame();
-				memcpy(child_page_frame1->kva, par_page->frame->kva, PGSIZE);
-				break;
-
-			case (VM_ANON):
-				vm_alloc_page(VM_ANON, par_va, writable);
-				vm_claim_page(par_va);
-				memcpy(spt_find_page(dst, par_va)->frame->kva, par_page->frame->kva, PGSIZE);
-				break;
-			// case (VM_FILE):
-			default:
-				break;
-		};
+		if (par_page->operations->type == VM_ANON){
+			vm_claim_page(par_page->va);
+			memcpy(spt_find_page(dst, par_page->va)->frame->kva, par_page->frame->kva, PGSIZE);
+		}
 
 	};
-	return succ;
+	return true;
 
 }
 
 /* Free the resource hold by the supplemental page table */
 void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
+
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 	

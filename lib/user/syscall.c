@@ -1,6 +1,9 @@
 #include <syscall.h>
 #include <stdint.h>
 #include "../syscall-nr.h"
+// 06.27
+#include "threads/vaddr.h"
+#include "threads/thread.h"
 
 __attribute__((always_inline))
 static __inline int64_t syscall (uint64_t num_, uint64_t a1_, uint64_t a2_,
@@ -147,9 +150,8 @@ dup2 (int oldfd, int newfd){
 
 void *
 mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-	return (void *) syscall5 (SYS_MMAP, addr, length, writable, fd, offset);
+    return (void *) syscall5 (SYS_MMAP, addr, length, writable, fd, offset);
 }
-
 void
 munmap (void *addr) {
 	syscall1 (SYS_MUNMAP, addr);

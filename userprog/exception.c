@@ -105,6 +105,7 @@ kill (struct intr_frame *f) {
 			printf ("Interrupt %#04llx (%s) in unknown segment %04x\n",
 					f->vec_no, intr_name (f->vec_no), f->cs);
 			thread_exit ();
+			
 	}
 }
 
@@ -142,6 +143,11 @@ page_fault (struct intr_frame *f) {
 	not_present = (f->error_code & PF_P) == 0;
 	write = (f->error_code & PF_W) != 0;
 	user = (f->error_code & PF_U) != 0;
+	/* read only 페이지에 대한 접근이 아닐 경우 (not_present 참조)*/
+	/* 페이지 폴트가 일어난 주소에 대한 vm_entry 구조체 탐색 */
+	/* vm_entry를 인자로 넘겨주며 handle_mm_fault() 호출 */
+	/* 제대로 파일이 물리 메모리에 로드 되고 맵핑 됬는지 검사 */
+
 	
 
 #ifdef VM
@@ -153,7 +159,12 @@ page_fault (struct intr_frame *f) {
 	/* Count page faults. */
 	page_fault_cnt++;
 
-	// /* If the fault is true fault, show info and exit. */
+	// 06.23
+	/* To implement virtual memory, delete the rest of the function
+	body, and replace it with code that brings in the page to
+	which fault_addr refers. */
+
+	/* If the fault is true fault, show info and exit. */
 	// printf ("Page fault at %p: %s error %s page in %s context.\n",
 	// 		fault_addr,
 	// 		not_present ? "not present" : "rights violation",
@@ -161,4 +172,8 @@ page_fault (struct intr_frame *f) {
 	// 		user ? "user" : "kernel");
 	// kill (f);
 	exit(-1);
+	
+	// 06.25 : 프로세스 종료, 모든 자원 해제
+	// supplemental_page_table_kill();
+	// process_exit();
 }

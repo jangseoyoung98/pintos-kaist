@@ -57,9 +57,9 @@ pdpe_walk (uint64_t *pdpe, const uint64_t va, int create) {
 
 /* Returns the address of the page table entry for virtual
  * address VADDR in page map level 4, pml4.
- * If PML4E does not have a page table for VADDR, behavior depends
  * on CREATE.  If CREATE is true, then a new page table is
- * created and a pointer into it is returned.  Otherwise, a null
+ * create
+ * If PML4E does not have a page table for VADDR, behavior dependsd and a pointer into it is returned.  Otherwise, a null
  * pointer is returned. */
 uint64_t *
 pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {

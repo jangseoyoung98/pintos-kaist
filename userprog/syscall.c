@@ -17,9 +17,12 @@
 #include "userprog/process.h"
 #include <string.h>
 
+
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(void *addr);
+// struct page* check_address(void *addr);
+
 void get_argument(void *rsp, int *arg, int count);
 void halt(void);
 void exit(int status);
@@ -35,9 +38,12 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
-void check_address(void *addr);
+// void check_address(void *addr);
 int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
+void check_valid_string (const void* str);
+void check_valid_buffer (void* buffer, unsigned size);
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset); 
 
 /* System call.
  *
@@ -67,7 +73,7 @@ void syscall_init(void)
 }
 
 /* The main system call interface */
-void syscall_handler(struct intr_frame *f UNUSED)
+void syscall_handler(struct intr_frame *f)
 {
    // TODO: Your implementation goes here.
    check_address(f->rsp);
@@ -87,6 +93,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
       break;
    case SYS_EXEC: /* Switch current process. */
       f->R.rax = exec(f->R.rdi);
+      if(f->R.rax == -1)
+         exit(-1);
       break;
    case SYS_WAIT: /* Wait for a child process to die. */
       f->R.rax = wait(f->R.rdi);
@@ -118,6 +126,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
    case SYS_CLOSE: /* Close a file. */
       close(f->R.rdi);
       break;
+   case SYS_MMAP:
+      f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+      break;
+   case SYS_MUNMAP:
+      munmap(f->R.rdi);
+      break;
    default:
       thread_exit();
    }
@@ -148,7 +162,7 @@ void exit(int status)
 */
 bool create(const char *file, unsigned initial_size)
 {
-   check_address(file);
+   check_valid_string(file);
    return filesys_create(file, initial_size);
 }
 
@@ -183,6 +197,13 @@ int exec(const char *cmd_line)
    char *fn_copy;
    tid_t tid;
 
+   // // 06.22 : exec-missing 디버깅
+   // struct thread* temp = thread_current();
+   // if(temp == NULL)
+   //    return -1;
+
+   check_valid_string(cmd_line);
+
    fn_copy = palloc_get_page(PAL_ZERO);
    if (fn_copy == NULL)
       return TID_ERROR;
@@ -190,9 +211,12 @@ int exec(const char *cmd_line)
    tid = process_exec(fn_copy);
    if (tid == -1)
    {
-      return -1;
+      return TID_ERROR;
    }
    palloc_free_page(fn_copy);
+
+   // 페이지 폴트 시에 -1을 리턴해야 함
+
    return tid;
 }
 /*
@@ -211,7 +235,7 @@ file(첫 번째 인자)이라는 이름을 가진 파일을 엽니다. 해당 �
 */
 int open(const char *file)
 {
-   check_address(file);
+   check_valid_string(file);
    struct file *open_file = filesys_open(file);
    if (open_file == NULL)
    {
@@ -221,6 +245,7 @@ int open(const char *file)
    if (fd == -1)
    {
       file_close(open_file);
+      exit(-1);
    }
    return fd;
 }
@@ -242,7 +267,8 @@ buffer 안에 fd 로 열려있는 파일로부터 size 바이트를 읽습니다
 */
 int read(int fd, void *buffer, unsigned size)
 {
-   check_address(buffer);
+   check_valid_buffer(buffer, size);
+
    int file_size;
    char *read_buffer = buffer;
    if (fd == 0)
@@ -282,7 +308,18 @@ buffer로부터 open file fd로 size 바이트를 적어줍니다.
 */
 int write(int fd, const void *buffer, unsigned size)
 {
+   check_valid_buffer(buffer, size);
+
    int file_size;
+   // 06.22 : 디버깅 추가
+   // 1) fd가 -1인지 확인 -> 앞서, open이 제대로 안 열린 것임
+   // if(fd == -1)
+   //    exit(-1);
+   // 2) buffer에 내용이 담겨 있는지 확인 (size 만큼의 정보가 있는지!)
+   // printf("####################버퍼 내용 : %s ###################\n\n", buffer);
+   // printf("####################버퍼 주소 : %p ###################\n\n", buffer);
+   // printf("####################fd : %d ###################\n\n", fd);
+
    if (fd == STDOUT_FILENO)
    {
       putbuf(buffer, size);
@@ -294,6 +331,12 @@ int write(int fd, const void *buffer, unsigned size)
    }
    else
    {
+      // 06.21
+      if (fd < FD_MIN || fd >= FD_MAX)
+      {
+         exit(-1);
+         return -1;
+      }
       lock_acquire(&filesys_lock);
       file_size = file_write(process_get_file(fd), buffer, size);
       lock_release(&filesys_lock);
@@ -349,9 +392,87 @@ void close(int fd)
 */
 void check_address(void *addr)
 {
-   struct thread *curr = thread_current();
-   if (!is_user_vaddr(addr) || is_kernel_vaddr(addr) || pml4_get_page(curr->pml4, addr) == NULL)
+   if (is_kernel_vaddr(addr) || !addr || addr >= (void *)0xc0000000) // || pml4_get_page(curr->pml4, addr) == NULL + 추후 숫자 확인!!!
    {
       exit(-1);
    }
+
+   // 06.23
+   struct thread* cur_thread = thread_current();
+   struct page* temp = spt_find_page(&cur_thread->spt, addr);
+   if(!temp)
+      exit(-1);
+}
+
+void check_valid_string (const void* str) 
+{
+   check_address(str);
+
+   /* str에 대한 vm_entry의 존재 여부를 확인*/
+   struct thread* curr = thread_current();
+   struct page* is_page = spt_find_page(&curr->spt, pg_round_down(str));
+   if(is_page == NULL){
+      exit(-1);
+   }
+
+}
+
+// 06.22 : 디버깅! -> 수정 필요!!
+void check_valid_buffer (void* buffer, unsigned size)
+{
+   // 버퍼를 통해 접근한 주소 + size가 PGSIZE와 동일한지 검사
+   struct thread* curr = thread_current();
+   struct page* is_page;
+   
+   // for문 돌면서 size마다 buffer 유효성 확인
+   // buffer 안에 fd 로 열려있는 파일로부터 size 바이트를 읽습니다.
+   void* temp_buffer = buffer;
+   while(temp_buffer <= buffer + size){
+      check_address(temp_buffer);
+      is_page = spt_find_page(&curr->spt, temp_buffer);
+      if(!is_page || is_page->writable != true){
+         exit(-1);
+      }
+      temp_buffer++;
+   }            
+}
+
+
+// 06.27
+void *
+mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
+   // ★ mmap 입장에서 length와 file_length는 어떤 역할인지 고민!!
+   // ▶ length는 읽을 범위, file_length는 실제 파일의 길이 -> length가 file_length보다 작을 경우도 OK지만, length가 file_length보다 큰 경우는 file_length만큼까지 읽기..?
+
+	// 인자들에 대한 유효성 검사
+	if(offset % PGSIZE != 0) return NULL;
+
+	if(!addr || (uintptr_t)addr % PGSIZE != 0 || is_kernel_vaddr(addr)) 
+		return NULL;
+	
+	struct thread* cur_thread = thread_current();
+	if(spt_find_page(&cur_thread->spt, addr)){
+      return NULL; // ★ 여기에서 디버깅이 걸림!! 즉, page가 없다는 것..?!
+   }
+
+
+
+	// if(fd == STDIN_FILENO || fd == STDOUT_FILENO) return NULL; -> process_get_file() 처리
+	// struct file* open_file = cur_thread->fdt[fd]; -> process_get_file() 처리
+
+   struct file* open_file = process_get_file(fd);
+   if(!open_file) return NULL;
+	if(length <= 0) return NULL;
+   
+   int file_len = file_length(open_file);
+   // if(length <= file_length(open_file))
+   //    length = length;
+   if(length > file_len) length = file_len;
+
+	return do_mmap(addr, length, writable, open_file, offset);
+}
+
+void 
+munmap(void* addr){
+   do_munmap(addr);
 }

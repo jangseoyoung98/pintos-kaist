@@ -10,7 +10,7 @@
 void
 test_main (void)
 {
-  char stack_obj[4096];
+  char stack_obj[4096]; // 스택 공간 -> 즉 이 안에서 스택이 grow 한다고 보면 됨..?
   struct arc4 arc4;
 
   arc4_init (&arc4, "foobar", 6);

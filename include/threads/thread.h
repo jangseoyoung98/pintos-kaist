@@ -10,6 +10,8 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
+// 06.27
+#define USERPROG
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,7 +107,7 @@ struct thread
    struct lock *wait_on_lock;   // 해당 쓰레드가 대기하고 있는 lock자료구조의 주소를 저장할 필드
    struct list list_donation;   // multiple donation을 고려하기 위한 리스트
    struct list_elem d_elem;     // 해당 리스트를 위한 elem도 추가
-   struct file **fdt;       // 파일 디스크립터 테이블
+   struct file **fdt;           // 파일 디스크립터 테이블
    int next_fd;                 // 테이블 중 비어있는 곳
    struct list child_list;      // 자식 스레드 리스트
    struct list_elem child_elem; // 자식 스레드 리스트를 위한 elem
@@ -133,8 +135,13 @@ struct thread
 #endif
 
    /* Owned by thread.c. */
-   struct intr_frame tf; /* Information for switching */
+   struct intr_frame tf; /* Information for switching */ // 06.23 : 이 말은 유저에서 커널로 옮겨갈 때 저장해야 하는 rsp..? 
    unsigned magic;       /* Detects stack overflow. */
+
+   // 06.23 : 구현 -> 안 되면 VM 안으로
+   void* rsp_stack;     // 현재 스레드의 주솟값 (rsp)
+   void* stack_bottom;  // 현재 스레드의 stack 영역의 끝 지점을 파악
+
 };
 
 /* If false (default), use round-robin scheduler.

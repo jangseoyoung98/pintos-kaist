@@ -1,0 +1,7 @@
+cd ..
+source ./activate
+cd vm
+make clean
+make 
+cd build
+gdb kernel.o

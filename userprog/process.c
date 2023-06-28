@@ -36,6 +36,8 @@ struct file *process_get_file(int fd);
 void process_close_file(int fd);
 void remove_child_process(struct thread *cp);
 struct thread *get_child_process(int pid);
+bool lazy_load_segment(struct page *page, void *aux);
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
@@ -763,7 +765,7 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment(struct page *page, void *aux)
 {
    struct frame *frame = page->frame;
@@ -782,6 +784,13 @@ lazy_load_segment(struct page *page, void *aux)
          palloc_free_page(frame->kva);
          return false;
       }
+
+      // 06.28 : file_page 멤버에 struct file*을 아래에서 초기화 한다.
+      if(page->operations->type == VM_FILE){
+         temp_aux->file = temp_aux->file;
+         page->seq_num = 0;
+      }
+
       memset(frame->kva + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
 
       return true;
@@ -851,11 +860,17 @@ setup_stack(struct intr_frame *if_)
     * TODO: If success, set the rsp accordingly.
     * TODO: You should mark the page is stack. */
    /* TODO: Your code goes here */
+   
+   // 1. 페이지 생성 + 멤버들 설정
+   // 예외처리 해야 한다고 박박도형이 말함 (안 그러면 터진다고..)
    vm_alloc_page(VM_ANON, stack_bottom, 1);
 
+   // 해시 테이블 추가..?
    if(vm_claim_page(stack_bottom)){
       if_->rsp = (uintptr_t) USER_STACK;
-
+      // struct thread* cur_thread;
+      thread_current()->stack_bottom = stack_bottom;
+      thread_current()->rsp_stack = if_->rsp; // 06.24 추가
       success = true;
    }
    return success;

@@ -15,6 +15,9 @@ struct file *process_get_file(int fd);
 void process_close_file(int fd);
 void remove_child_process(struct thread *cp);
 
+// 06.27
+bool lazy_load_segment(struct page *page, void *aux);
+
 struct lazy_load_file {
     size_t page_read_bytes;
     size_t page_zero_bytes;
