@@ -17,6 +17,9 @@ struct file_page {
 
 	// 06.28
 	struct file* file;
+	//🔥 MMF
+	off_t offset;
+	size_t page_read_bytes;
 };
 
 void vm_file_init (void);

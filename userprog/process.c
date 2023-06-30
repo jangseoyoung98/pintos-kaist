@@ -204,6 +204,7 @@ __do_fork(void *aux)
    /* Finally, switch to the newly created process. */
    if (succ)
       do_iret(&if_);
+
 error:
    current->exit_flag = TID_ERROR;
    sema_up(&current->load_sema);
@@ -383,6 +384,17 @@ int process_wait(tid_t child_tid UNUSED)
 void process_exit(void)
 {
    struct thread *cur = thread_current();
+   struct hash_iterator i;
+
+   if(hash_size(&cur->spt.table) != NULL){
+   hash_first(&i, &cur->spt.table);
+   while (hash_next (&i))
+   {
+   struct page *page = hash_entry(hash_cur(&i), struct page, hash_elem);
+      munmap(page->va);
+   }
+   }
+
    for (int i = 2; i < 64; i++)
       close(i);
    file_close(cur->running_file);
@@ -784,14 +796,18 @@ lazy_load_segment(struct page *page, void *aux)
          palloc_free_page(frame->kva);
          return false;
       }
+      memset(frame->kva + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
 
+      //🔥 MMF -> temp_aux = 로 하면 안 됨!! 인자로 넘겨 받은 page 멤버에 temp_aux의 멤버를 대입해 줘야지,,
+      // temp_aux->file = temp_aux->file; 이거 안 됨
       // 06.28 : file_page 멤버에 struct file*을 아래에서 초기화 한다.
       if(page->operations->type == VM_FILE){
-         temp_aux->file = temp_aux->file;
-         page->seq_num = 0;
+         page->file.file = temp_aux->file;
+         page->file.offset = temp_aux->ofs;
+         page->file.page_read_bytes = temp_aux->page_read_bytes;
       }
 
-      memset(frame->kva + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
+      // page->seq_num = 0;
 
       return true;
 }

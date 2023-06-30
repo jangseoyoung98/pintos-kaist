@@ -219,6 +219,9 @@ vm_try_handle_fault (struct intr_frame *f, void *addr,
 	if(page != NULL)
 		goto done;
 
+	if(addr > USER_STACK || addr < USER_STACK - (1<<20)) // 🔥 추가
+		goto done;
+	
 	if(addr <= cur_thread->stack_bottom && addr >= (f->rsp - 8)){
 		// if(addr < USER_STACK - (1 << 20)) // 스택 확장 최대 1MB 
 		// 	return false;
@@ -240,6 +243,18 @@ done:
 		return false;
 	
 	return true;
+	// if ( page == NULL && USER_STACK >= addr && addr >= USER_STACK-(1 << 20)){
+	// 	// printf("여긴가?\n");
+	// 	void *stack_bottom = thread_current()->stack_bottom;
+	// 	void *new_stack_bottom = stack_bottom - PGSIZE;
+
+	// 	if (f->rsp-8 <= addr  && addr <= stack_bottom) {   // addr이 grow limit안에 들어오는지 체크
+	// 		vm_stack_growth(new_stack_bottom);
+	// 	}
+	// 	return vm_claim_page(new_stack_bottom);
+	// }
+	// if (page == NULL) return false;
+	// return vm_do_claim_page(page);
 
 }
 
@@ -326,7 +341,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst ,
 /* Free the resource hold by the supplemental page table */
 void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
-
+	
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 	

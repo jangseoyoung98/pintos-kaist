@@ -165,6 +165,7 @@ page_fault (struct intr_frame *f) {
 	which fault_addr refers. */
 
 	/* If the fault is true fault, show info and exit. */
+	//🔥 MMF
 	// printf ("Page fault at %p: %s error %s page in %s context.\n",
 	// 		fault_addr,
 	// 		not_present ? "not present" : "rights violation",

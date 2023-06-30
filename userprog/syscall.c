@@ -44,6 +44,7 @@ struct file *process_get_file(int fd);
 void check_valid_string (const void* str);
 void check_valid_buffer (void* buffer, unsigned size);
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset); 
+void munmap(void* addr); //🔥 MMF : 헤더 빠트리지 않기..!!!
 
 /* System call.
  *
@@ -308,6 +309,7 @@ buffer로부터 open file fd로 size 바이트를 적어줍니다.
 */
 int write(int fd, const void *buffer, unsigned size)
 {
+   // check_valid_string(buffer);
    check_valid_buffer(buffer, size);
 
    int file_size;
@@ -408,7 +410,7 @@ void check_valid_string (const void* str)
 {
    check_address(str);
 
-   /* str에 대한 vm_entry의 존재 여부를 확인*/
+   /* str에 대한 page의 존재 여부를 확인*/
    struct thread* curr = thread_current();
    struct page* is_page = spt_find_page(&curr->spt, pg_round_down(str));
    if(is_page == NULL){
@@ -417,7 +419,7 @@ void check_valid_string (const void* str)
 
 }
 
-// 06.22 : 디버깅! -> 수정 필요!!
+// 06.22 : 디버깅! -> 수정 필요!! 🔥MMF : 이거 아직 안 고쳤는데, 수정 필요한가..? 
 void check_valid_buffer (void* buffer, unsigned size)
 {
    // 버퍼를 통해 접근한 주소 + size가 PGSIZE와 동일한지 검사
@@ -430,8 +432,8 @@ void check_valid_buffer (void* buffer, unsigned size)
    while(temp_buffer <= buffer + size){
       check_address(temp_buffer);
       is_page = spt_find_page(&curr->spt, temp_buffer);
-      if(!is_page || is_page->writable != true){
-         exit(-1);
+      if(!is_page){ //|| is_page->writable != true
+         exit(-1); 
       }
       temp_buffer++;
    }            
@@ -444,30 +446,49 @@ mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
    // ★ mmap 입장에서 length와 file_length는 어떤 역할인지 고민!!
    // ▶ length는 읽을 범위, file_length는 실제 파일의 길이 -> length가 file_length보다 작을 경우도 OK지만, length가 file_length보다 큰 경우는 file_length만큼까지 읽기..?
 
-	// 인자들에 대한 유효성 검사
-	if(offset % PGSIZE != 0) return NULL;
+   // PANIC("################## %zu ########################\n\n", length);
+   // PANIC("addr : %zu \n\n", addr);
+   // PANIC("addr + length : %zu \n\n", addr + length);
 
-	if(!addr || (uintptr_t)addr % PGSIZE != 0 || is_kernel_vaddr(addr)) 
-		return NULL;
+
+	// 인자들에 대한 유효성 검사
+	if(offset % PGSIZE != 0) {
+      // PANIC("offset %% PGSIZE != 0\n\n");
+      return NULL;
+   }
+	
+   if(!addr || (uintptr_t)addr % PGSIZE != 0 || is_kernel_vaddr(addr)) {
+      // PANIC("!addr || (uintptr_t)addr % PGSIZE != 0 || is_kernel_vaddr(addr)");
+      return NULL;
+   }
 	
 	struct thread* cur_thread = thread_current();
 	if(spt_find_page(&cur_thread->spt, addr)){
-      return NULL; // ★ 여기에서 디버깅이 걸림!! 즉, page가 없다는 것..?!
+      // PANIC("spt_find_page(&cur_thread->spt, addr)\n\n");
+      return NULL;
    }
 
-
-
-	// if(fd == STDIN_FILENO || fd == STDOUT_FILENO) return NULL; -> process_get_file() 처리
-	// struct file* open_file = cur_thread->fdt[fd]; -> process_get_file() 처리
-
    struct file* open_file = process_get_file(fd);
-   if(!open_file) return NULL;
-	if(length <= 0) return NULL;
-   
+   if(!open_file){
+      // PANIC("!open_file\n\n");
+      return NULL;
+   }
+	if(length <= 0) {
+      // PANIC("length <= 0\n\n");
+      return NULL;
+   }
+
+   // mmap-kernel 예외 처리 (06.29) -> Physical
+   // if(LOADER_KERN_BASE - (uintptr_t)addr <= length) return NULL;
+   if(addr + length == 0) { // unsigned long long 유효 범위를 오버 플로우 하게 됨!!!
+      // PANIC("addr : %zu \n\n", addr);
+      // PANIC("length : %zu \n\n", length);      
+      // PANIC("addr + length : %zu \n\n", addr + length);
+      return NULL;
+   }
+
    int file_len = file_length(open_file);
-   // if(length <= file_length(open_file))
-   //    length = length;
-   if(length > file_len) length = file_len;
+   length = ((length < file_len) ? length : file_len);
 
 	return do_mmap(addr, length, writable, open_file, offset);
 }
