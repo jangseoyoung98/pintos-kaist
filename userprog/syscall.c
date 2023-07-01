@@ -431,7 +431,7 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
    if ((uint64_t)addr % PGSIZE != 0) {
       return NULL;
    }
-   if ((long long)length < 0) return NULL;
+   if ((long long)length < 0) return NULL; 
 
    return do_mmap(addr, length, writable, file, offset);
 }

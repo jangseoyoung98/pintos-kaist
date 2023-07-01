@@ -12,6 +12,8 @@ struct anon_page {
 	void *aux;
 	/* Initiate the struct page and maps the pa to the va */
 	bool (*page_initializer) (struct page *, enum vm_type, void *kva);
+
+	int swap_index; //★★★ : swap 된 데이터들이 저장된 섹터 구역을 의미한다.
 };
 void vm_anon_init (void);
 bool anon_initializer (struct page *page, enum vm_type type, void *kva);
