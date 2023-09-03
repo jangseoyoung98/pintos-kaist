@@ -531,28 +531,6 @@ init_thread(struct thread *t, const char *name, int priority)
    sema_init(&t->load_sema, 0);
    sema_init(&t->exit_sema, 0);
    sema_init(&t->free_sema, 0);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

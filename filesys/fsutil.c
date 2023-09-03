@@ -103,7 +103,7 @@ fsutil_put (char **argv) {
 	size = ((int32_t *) buffer)[1];
 	if (size < 0)
 		PANIC ("%s: invalid file size %d", file_name, size);
-
+	
 	/* Create destination file. */
 	if (!filesys_create (file_name, size))
 		PANIC ("%s: create failed", file_name);

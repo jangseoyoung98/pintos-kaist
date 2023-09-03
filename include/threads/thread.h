@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/interrupt.h"
 #include "threads/synch.h"
+#define VM
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -104,7 +105,7 @@ struct thread
    struct lock *wait_on_lock;   // 해당 쓰레드가 대기하고 있는 lock자료구조의 주소를 저장할 필드
    struct list list_donation;   // multiple donation을 고려하기 위한 리스트
    struct list_elem d_elem;     // 해당 리스트를 위한 elem도 추가
-   struct file **fdt;           // 파일 디스크립터 테이블
+   struct file **fdt;       // 파일 디스크립터 테이블
    int next_fd;                 // 테이블 중 비어있는 곳
    struct list child_list;      // 자식 스레드 리스트
    struct list_elem child_elem; // 자식 스레드 리스트를 위한 elem
@@ -128,7 +129,9 @@ struct thread
 #endif
 #ifdef VM
    /* Table for whole virtual memory owned by thread. */
-   struct supplemental_page_table spt; // 스레드별로 페이지 테이블을 가짐!
+   void *rsp_stack; // 현재 쓰레드의 rsp 주소값을 담는 변수
+   void *stack_bottom; // 현재 쓰레드의 stack 영역의 끝 지점을 파악하기 위해 선언하는 변수
+   struct supplemental_page_table spt;
 #endif
 
    /* Owned by thread.c. */

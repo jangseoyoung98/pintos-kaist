@@ -8,7 +8,7 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
-#include "vm/vm.h"	// 06.15 추가
+#include "vm/vm.h"
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
 	list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -19,6 +19,8 @@ static struct hash_elem *find_elem (struct hash *, struct list *,
 static void insert_elem (struct hash *, struct list *, struct hash_elem *);
 static void remove_elem (struct hash *, struct hash_elem *);
 static void rehash (struct hash *);
+bool hash_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+uint64_t hash_hash (const struct hash_elem *p_, void *aux UNUSED);
 
 /* Initializes hash table H to compute hash values using HASH and
    compare hash elements using LESS, given auxiliary data AUX. */
@@ -393,23 +395,19 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	list_remove (&e->list_elem);
 }
 
-// ▶ 해시값을 구해준다. (요소의 데이터를 64bit unsigned int로 해싱한 값을 리턴한다.)
-// 06.15 구현
-uint64_t hash_hash_func (const struct hash_elem *e, void *aux){
-	// 1. hash_entry()로 element에 대한 vm_entry 구조체 검색
-	struct page *p = hash_entry(e, struct page, hash_elem);
-	
-	// 2. hash_int()를 이용해서 vm_etnry의 멤버 vaddr에 대한 해시값을 구하고 반환
-	return hash_bytes(&p->va, sizeof(p->va));
+/* Returns true if page a precedes page b. */
+bool
+hash_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux ) {
+  const struct page *a = hash_entry (a_, struct page, hash_elem);
+  const struct page *b = hash_entry (b_, struct page, hash_elem);
 
-	// 추가로, 해시 테이블에 vm_entry 삽입 시 어느 위치에 넣을지 계산
+  return a->va < b->va;
 }
 
-// ▶ 해시 element들의 크기를 비교해 준다. (두 hash_elem의 vaddr을 비교)
-// 06.15 구현
-bool hash_less_func (const struct hash_elem *a,const struct hash_elem *b,void *aux) {
-	struct page *a_ = hash_entry (a, struct page, hash_elem);
-	struct page *b_ = hash_entry (b, struct page, hash_elem);
-	return a_->va < b_->va;
+/* Returns a hash value for page p. */
+uint64_t
+hash_hash (const struct hash_elem *p_, void *aux ) {
+  const struct page *p = hash_entry (p_, struct page, hash_elem);
+  return hash_bytes (&p->va, sizeof p->va);
 }
-

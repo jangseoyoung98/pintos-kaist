@@ -184,8 +184,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) {
 	uint8_t *buffer = buffer_;
 	off_t bytes_read = 0;
 	uint8_t *bounce = NULL;
-
+	
 	while (size > 0) {
+
 		/* Disk sector to read, starting byte offset within sector. */
 		disk_sector_t sector_idx = byte_to_sector (inode, offset);
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
@@ -199,7 +200,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) {
 		int chunk_size = size < min_left ? size : min_left;
 		if (chunk_size <= 0)
 			break;
-
+		
 		if (sector_ofs == 0 && chunk_size == DISK_SECTOR_SIZE) {
 			/* Read full sector directly into caller's buffer. */
 			disk_read (filesys_disk, sector_idx, buffer + bytes_read); 
@@ -219,6 +220,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) {
 		size -= chunk_size;
 		offset += chunk_size;
 		bytes_read += chunk_size;
+
 	}
 	free (bounce);
 

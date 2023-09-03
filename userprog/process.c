@@ -94,13 +94,11 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
    struct thread *cur = thread_current();
    memcpy(&thread_current()->parent_if, if_, sizeof(struct intr_frame));
    tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, cur);
-
    if (tid == TID_ERROR)
    {
       return TID_ERROR;
    }
    struct thread *child = get_child_process(tid); // child_list안에서 만들어진 child thread를 찾음
-
    sema_down(&child->load_sema); // 자식이 메모리에 load 될때까지 기다림(blocked)
 
    if (child->exit_flag == -1)
@@ -176,6 +174,7 @@ __do_fork(void *aux)
    supplemental_page_table_init(&current->spt);
    if (!supplemental_page_table_copy(&current->spt, &parent->spt))
       goto error;
+      
 #else
    if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
       goto error;
@@ -234,14 +233,20 @@ int process_exec(void *f_name)
    bool success;
    struct thread *cur = thread_current();
 
+   /* We first kill the current context */
+   process_cleanup();
+
+   #ifdef VM
+   supplemental_page_table_init(&thread_current()->spt);
+   #endif
+
    // intr_frame 권한설정
    struct intr_frame _if;
    _if.ds = _if.es = _if.ss = SEL_UDSEG;
    _if.cs = SEL_UCSEG;
    _if.eflags = FLAG_IF | FLAG_MBS;
 
-   /* We first kill the current context */
-   process_cleanup();
+
 
    // for argument parsing
    char *parse[64];
@@ -326,7 +331,7 @@ int process_add_file(struct file *f)
 }
 
 struct file *process_get_file(int fd)
-{
+{  
    struct thread *cur = thread_current();
    if (fd < FD_MIN || fd >= FD_MAX)
    {
@@ -379,6 +384,17 @@ void process_exit(void)
    for (int i = 2; i < 64; i++)
       close(i);
    file_close(cur->running_file);
+
+   if ( hash_size(&cur->spt.table) != 0){
+   struct hash_iterator i;
+   hash_first (&i, &cur->spt.table);
+   
+      while (hash_next (&i))
+      {
+         struct page *page = hash_entry (hash_cur (&i), struct page, hash_elem);
+         do_munmap(page->va);
+      }
+   }
    sema_up(&cur->exit_sema);
    sema_down(&cur->free_sema);
    process_cleanup(); // pml4를 날림(이 함수를 call 한 thread의 pml4)
@@ -758,12 +774,33 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment(struct page *page, void *aux)
 {
+   struct frame *frame = page->frame;
    /* TODO: Load the segment from the file */
    /* TODO: This called when the first page fault occurs on address VA. */
    /* TODO: VA is available when calling this function. */
+   //  uint8_t *kpage = palloc_get_page(PAL_USER);
+      // if (kpage == NULL)
+      //    return false;
+      
+      struct lazy_load_file* temp_aux = (struct lazy_load_file*)aux;
+      file_seek(temp_aux->file, temp_aux->ofs);
+      /* Load this page. */
+      if (file_read(temp_aux->file, frame->kva, temp_aux->page_read_bytes) != (int)temp_aux->page_read_bytes)
+      { 
+         palloc_free_page(frame->kva);
+         return false;
+      }
+      memset(frame->kva + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
+      
+      if ( page->operations->type == VM_FILE){
+         page->file.file = temp_aux->file;
+         page->file.offset = temp_aux->ofs;
+         page->file.page_read_bytes = temp_aux->page_read_bytes;
+      }
+      return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -797,7 +834,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* TODO: Set up aux to pass information to the lazy_load_segment. */
-      void *aux = NULL;
+      // void *aux = NULL;
+      struct lazy_load_file *aux = (struct lazy_load_file *) malloc(sizeof(struct lazy_load_file));
+
+      aux->file = file;
+      aux->page_read_bytes = page_read_bytes;
+      aux->page_zero_bytes = page_zero_bytes;
+      aux->ofs = ofs;
+
       if (!vm_alloc_page_with_initializer(VM_ANON, upage,
                                           writable, lazy_load_segment, aux))
          return false;
@@ -805,6 +849,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
+      ofs += page_read_bytes;
       upage += PGSIZE;
    }
    return true;
@@ -821,7 +866,17 @@ setup_stack(struct intr_frame *if_)
     * TODO: If success, set the rsp accordingly.
     * TODO: You should mark the page is stack. */
    /* TODO: Your code goes here */
+   if(!vm_alloc_page(VM_ANON, stack_bottom, 1)){
+      return false;
+   }
 
+   if(vm_claim_page(stack_bottom)){
+      if_->rsp = (uintptr_t) USER_STACK;
+      thread_current()->rsp_stack = USER_STACK;
+      thread_current()->stack_bottom = stack_bottom;
+
+      success = true;
+   }
    return success;
 }
 #endif /* VM */

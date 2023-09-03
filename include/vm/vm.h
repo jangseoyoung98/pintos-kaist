@@ -2,8 +2,7 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
-#include "kernel/hash.h"
-#include "kernel/list.h"
+#include "lib/kernel/hash.h"
 
 enum vm_type { /* 가상 메모리 타입들 */
 	/* page not initialized : 초기화 되지 않은 페이지들 (디폴트) */
@@ -49,9 +48,10 @@ struct page {
 	struct frame *frame;   /* Back reference for frame : 물리 메모리 */
 
 	/* Your implementation */
-	// 06.14 : 구현
 	struct hash_elem hash_elem;
-	
+	bool writable;
+	int seq_num;
+
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	// 페이지의 속성은 아래 4개 중 하나가 됨
@@ -68,10 +68,9 @@ struct page {
 
 /* The representation of "frame" */
 struct frame {
-	void *kva; 			// 커널 가상 주소
-	struct page *page;	// 페이지 구조체를 담기 위한 멤버
-	
-	// 프레임 관리 인터페이스 구현 과정에서 다른 멤버들 추가 가능
+	void *kva;
+	struct page *page;
+	struct list_elem frame_elem;
 };
 
 /* The function table for page operations.
@@ -98,11 +97,6 @@ struct page_operations {
 // 06.14 : 구현
 struct supplemental_page_table {
 	struct hash table;
-
-	// 각각의 페이지에 대해 데이터가 존재하는 곳 (frame, disk, swap 중)
-	// 위에 상응하는 커널 가상 주소를 가리키는 포인터 정보
-	// active인지 inactive인지
-	
 };
 
 #include "threads/thread.h"

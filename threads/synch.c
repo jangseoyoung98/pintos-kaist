@@ -84,6 +84,38 @@ cmp_donation_priority(const struct list_elem *a_, const struct list_elem *b_, vo
 	return a->priority > b->priority;
 }
 
+void sema_init(struct semaphore *sema, unsigned value)
+{
+	ASSERT(sema != NULL);
+
+	sema->value = value;
+	list_init(&sema->waiters);
+}
+
+static bool
+cmp_sem_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+	const struct semaphore_elem *sa = list_entry(a_, struct semaphore_elem, elem);
+	const struct semaphore_elem *sb = list_entry(b_, struct semaphore_elem, elem);
+
+	const struct list_elem *lsa = list_begin(&sa->semaphore.waiters);
+	const struct list_elem *lsb = list_begin(&sb->semaphore.waiters);
+
+	const struct thread *tlsa = list_entry(lsa, struct thread, elem);
+	const struct thread *tlsb = list_entry(lsb, struct thread, elem);
+
+	return tlsa->priority > tlsb->priority;
+}
+
+static bool
+cmp_donation_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+	const struct thread *a = list_entry(a_, struct thread, d_elem);
+	const struct thread *b = list_entry(b_, struct thread, d_elem);
+
+	return a->priority > b->priority;
+}
+
 //🔥새로운 세마포어 구조체를 초기화 한다.
 void sema_init(struct semaphore *sema, unsigned value)
 {
@@ -202,7 +234,10 @@ sema_test_helper(void *sema_)
 	}
 }
 
+<<<<<<< HEAD
 //🔥새로운 lock 구조체를 초기화 한다. (어떤 스레드도 소유하지 않음)
+=======
+>>>>>>> f6398dc14372b5e31ff653d6678120682faa1940
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -217,6 +252,10 @@ sema_test_helper(void *sema_)
    acquire and release it.  When these restrictions prove
    onerous, it's a good sign that a semaphore should be used,
    instead of a lock. */
+<<<<<<< HEAD
+=======
+
+>>>>>>> f6398dc14372b5e31ff653d6678120682faa1940
 void lock_init(struct lock *lock)
 {
 	ASSERT(lock != NULL);
@@ -268,8 +307,13 @@ bool cmp_d_priority(const struct list_elem *a_elem, const struct list_elem *b_el
 	return a > b;
 }
 
+<<<<<<< HEAD
 //🔥현재 스레드에서 lock을 획득한다. (lock owner가 lock을 놓아주기를 기다려야 한다면 기다린다.)
 // lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여 priority donation을 수행하도록 수정
+=======
+/* lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여
+priority donation을 수행하도록 수정 */
+>>>>>>> f6398dc14372b5e31ff653d6678120682faa1940
 // NOTE: lock_acquire를 이해한 대로 최종적으로 로직을 수정했음. 지금으로썬 더 수정할 필요 없어보임
 void lock_acquire(struct lock *lock)
 {
@@ -350,7 +394,10 @@ void remove_with_lock(struct lock *lock)
 	}
 }
 
+<<<<<<< HEAD
 //🔥락을 놓아준다. (현재 스레드가 소유 중이어야 한다.)
+=======
+>>>>>>> f6398dc14372b5e31ff653d6678120682faa1940
 /* Releases LOCK, which must be owned by the current thread.
    This is lock_release function.
 

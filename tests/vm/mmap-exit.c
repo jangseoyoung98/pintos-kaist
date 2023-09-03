@@ -22,5 +22,5 @@ test_main (void)
 		
 		/* Check file contents. */
 		check_file ("sample.txt", sample, sizeof sample);
-	} 
+	}
 }

@@ -5,7 +5,7 @@
 #include "tests/main.h"
 
 void
-test_main (void) 
+test_main (void)
 {
   pid_t child;
   if ((child = fork ("child-bad"))){
